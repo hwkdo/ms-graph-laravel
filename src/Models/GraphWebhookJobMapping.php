@@ -94,4 +94,3 @@ class GraphWebhookJobMapping extends Model
         return $portalUrl.'/api/kunden/ms-graph-subscription/'.$webhookType;
     }
 }
-

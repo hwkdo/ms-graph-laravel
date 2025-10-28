@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class ProcessOnedriveFilerExtern implements ShouldQueue
 {
@@ -19,6 +20,6 @@ class ProcessOnedriveFilerExtern implements ShouldQueue
 
     public function handle()
     {
-        //
+        Log::info('ProcessOnedriveFilerExtern', $this->data);
     }
 }

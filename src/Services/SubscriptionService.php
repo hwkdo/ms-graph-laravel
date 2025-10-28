@@ -31,7 +31,8 @@ class SubscriptionService
         $subscription->setResource($resource);
         // maximale expoiration time fuer mails ist 4230 minuten
         // https://learn.microsoft.com/en-us/graph/api/resources/subscription?view=graph-rest-1.0#maximum-length-of-subscription-per-resource-type
-        $subscription->setExpirationDateTime(\Carbon\Carbon::now()->addMinutes(4320)->toISOString());
+        $expirationDate = \Carbon\Carbon::now()->addMinutes(4320);
+        $subscription->setExpirationDateTime(new \DateTime($expirationDate->toIso8601String()));
         $subscription->setClientState(config('ms-graph-laravel.subscription_secret'));
         $subscription->setLatestSupportedTlsVersion('v1_2');
 

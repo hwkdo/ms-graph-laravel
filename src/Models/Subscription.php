@@ -8,7 +8,7 @@ class Subscription extends Model
 {
     protected $guarded = [];
 
-    protected $table = 'ms_graph_subscriptions';
+    protected $table = 'ms_graph_laravel_subscriptions';
 
     protected $casts = [
         'expiration' => 'datetime',

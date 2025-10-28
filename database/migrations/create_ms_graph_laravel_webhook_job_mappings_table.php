@@ -17,6 +17,12 @@ return new class extends Migration
             $table->string('job_class');
             $table->boolean('is_active')->default(true);
             $table->text('description')->nullable();
+            $table->string('name')->nullable();
+            $table->string('filepath')->nullable();
+            $table->string('upn')->nullable();
+            $table->text('resource')->nullable();
+            $table->string('notification_url')->nullable();
+            $table->string('change_type')->nullable();
             $table->timestamps();
         });
     }
