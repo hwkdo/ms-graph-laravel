@@ -6,6 +6,8 @@ use Hwkdo\MsGraphLaravel\Client;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface;
 use Exception;
 use Microsoft\Graph\GraphServiceClient;
+use Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration;
+use Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters;
 
 class UserService implements MsGraphUserServiceInterface
 {
@@ -40,10 +42,14 @@ class UserService implements MsGraphUserServiceInterface
 
     public function getUserByAlias($alias)
     {
-        $filter = urlencode("proxyAddresses/any(c:c eq 'SMTP:".$alias."')");
+        $filter = "proxyAddresses/any(c:c eq 'SMTP:".$alias."')";
+
+        $requestConfiguration = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration();
+        $requestConfiguration->queryParameters = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters();
+        $requestConfiguration->queryParameters->filter = $filter;
 
         $response = self::$graph->users()
-            ->get(['filter' => $filter])
+            ->get($requestConfiguration)
             ->wait();
 
         return $response->getValue()[0] ?? null;
