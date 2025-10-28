@@ -23,6 +23,35 @@ Sie können die Konfigurationsdatei veröffentlichen:
 php artisan vendor:publish --tag="ms-graph-laravel-config"
 ```
 
+### Webhook-Job-Mappings initialisieren
+
+Das Package enthält einen Seeder, um die Standard-Webhook-Job-Mappings zu erstellen:
+
+```bash
+php artisan db:seed --class=Hwkdo\\MsGraphLaravel\\Database\\Seeders\\GraphWebhookJobMappingSeeder
+```
+
+Alternativ können Sie den Seeder in Ihrem `DatabaseSeeder` registrieren:
+
+```php
+// database/seeders/DatabaseSeeder.php
+public function run(): void
+{
+    $this->call([
+        \Hwkdo\MsGraphLaravel\Database\Seeders\GraphWebhookJobMappingSeeder::class,
+    ]);
+}
+```
+
+Der Seeder erstellt automatisch Mappings für folgende Webhook-Typen:
+- `intracollect` - Formwerk Mail Webhooks für IntraCollect
+- `angebote` - Bestellungen und Angebote Webhooks
+- `ntopng` - Ntopng Webhooks
+- `onedrive_filer` - OneDrive Filer Webhooks
+- `onedrive_filerextern` - Externe OneDrive Filer Webhooks
+
+Die Notification URLs werden automatisch basierend auf der `PORTAL_URL` Umgebungsvariable generiert.
+
 ## Konfiguration
 
 Fügen Sie die folgenden Umgebungsvariablen zu Ihrer `.env`-Datei hinzu:
@@ -47,6 +76,9 @@ MSGRAPH_APP_SECRET_KEY_SUBSCRIPTION=your-subscription-client-secret
 
 # Subscription Secret
 MSGRAPH_SUBSCRIBE_SECRET=your-subscription-secret
+
+# Portal URL für Webhook-Benachrichtigungen
+PORTAL_URL=https://portal.hwkdo.com
 
 # Cache Konfiguration
 MSGRAPH_CACHE_SECONDS=300
@@ -202,45 +234,88 @@ php artisan msgraph:refresh-active-users-with-ooo-cache
 
 ## Webhook-Subscriptions
 
-Das Package unterstützt Microsoft Graph Webhook-Subscriptions für Echtzeit-Updates:
+Das Package unterstützt Microsoft Graph Webhook-Subscriptions für Echtzeit-Updates.
 
-### Konfiguration
+### Webhook-Job-Mappings
+
+Webhook-Subscriptions werden in der Datenbank verwaltet. Jede Subscription ist mit einem Job verknüpft, der ausgeführt wird, wenn ein Webhook empfangen wird.
+
+#### Neue Webhook-Subscription hinzufügen
 
 ```php
-// config/ms-graph-laravel.php
-'subscriptions' => [
-    'mail_subscription' => [
-        'filepath' => storage_path('app/subscriptions/'),
-        'upn' => 'user@domain.com',
-        'resource' => "/users/user@domain.com/mailFolders('inbox')/messages",
-        'notificationUrl' => 'https://your-app.com/webhook/mail',
-        'changeType' => 'created',
-    ],
-    'onedrive_subscription' => [
-        'filepath' => storage_path('app/subscriptions/'),
-        'upn' => 'user@domain.com',
-        'resource' => '/users/user@domain.com/drive/root',
-        'notificationUrl' => 'https://your-app.com/webhook/onedrive',
-        'changeType' => 'updated',
-    ],
-],
+use Hwkdo\MsGraphLaravel\Models\GraphWebhookJobMapping;
+use App\Jobs\ProcessMyWebhook;
+
+GraphWebhookJobMapping::create([
+    'webhook_type' => 'my_webhook',
+    'name' => 'my_webhook_name',
+    'job_class' => ProcessMyWebhook::class,
+    'filepath' => storage_path('app/webhooks/'),
+    'upn' => 'user@domain.com',
+    'resource' => "/users/user@domain.com/mailFolders('inbox')/messages",
+    'notification_url' => GraphWebhookJobMapping::generateNotificationUrl('my_webhook'),
+    'change_type' => 'created',
+    'description' => 'Beschreibung der Subscription',
+    'is_active' => true,
+]);
 ```
 
-### Webhook-Handler
+#### Webhook-Subscription abrufen
 
 ```php
-use Hwkdo\MsGraphLaravel\Services\SubscriptionService;
+use Hwkdo\MsGraphLaravel\Models\GraphWebhookJobMapping;
 
-class WebhookController extends Controller
+// Alle aktiven Subscriptions
+$subscriptions = GraphWebhookJobMapping::getActiveSubscriptions();
+
+// Subscription nach Typ
+$jobClass = GraphWebhookJobMapping::getJobClassForType('intracollect');
+
+// Subscription nach Resource und URL
+$subscription = GraphWebhookJobMapping::findByResourceAndNotificationUrl(
+    "/users/user@domain.com/mailFolders('inbox')/messages",
+    'https://portal.hwkdo.com/api/kunden/ms-graph-subscription/intracollect'
+);
+```
+
+#### Webhook-Job erstellen
+
+Ihr Webhook-Job sollte die empfangenen Daten verarbeiten:
+
+```php
+namespace App\Jobs;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+
+class ProcessMyWebhook implements ShouldQueue
 {
-    public function handleMailWebhook(Request $request, SubscriptionService $subscriptionService)
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public function __construct(
+        public string $resource
+    ) {}
+
+    public function handle(): void
     {
-        $subscriptionService->handleWebhook($request->all());
-        
-        return response()->json(['status' => 'success']);
+        // Verarbeite die Webhook-Daten
+        // $this->resource enthält die Microsoft Graph Resource ID
     }
 }
 ```
+
+### Webhook-Endpoint
+
+Das Package registriert automatisch einen Webhook-Endpoint unter:
+
+```
+POST /api/kunden/ms-graph-subscription/{typ}
+```
+
+Microsoft Graph sendet Webhooks an diese URL. Der `{typ}` Parameter bestimmt, welcher Job ausgeführt wird.
 
 ## Features
 
