@@ -1,298 +1,350 @@
-# Azure Storage Laravel
+# Microsoft Graph Laravel
 
-A Laravel package for managing Azure Blob Storage with OAuth token authentication. Upload, list, and delete files from Azure Blob Storage with automatic token management and support for multiple connections.
+Ein Laravel Package für die Integration mit Microsoft Graph API. Dieses Package bietet eine umfassende Lösung für die Verwaltung von Microsoft 365-Diensten wie Benutzer, E-Mails, OneDrive, Lizenzen und Abwesenheitsvorlagen.
 
 ## Installation
 
-You can install the package via composer:
+Sie können das Package über Composer installieren:
 
 ```bash
-composer require hwkdo/azure-storage-laravel
+composer require hwkdo/ms-graph-laravel
 ```
 
-You can publish and run the migrations with:
+Sie können die Migrationen veröffentlichen und ausführen:
 
 ```bash
-php artisan vendor:publish --tag="azure-storage-laravel-migrations"
+php artisan vendor:publish --tag="ms-graph-laravel-migrations"
 php artisan migrate
 ```
 
-You can publish the config file with:
+Sie können die Konfigurationsdatei veröffentlichen:
 
 ```bash
-php artisan vendor:publish --tag="azure-storage-laravel-config"
+php artisan vendor:publish --tag="ms-graph-laravel-config"
 ```
 
-## Configuration
+## Konfiguration
 
-Add the following environment variables to your `.env` file:
+Fügen Sie die folgenden Umgebungsvariablen zu Ihrer `.env`-Datei hinzu:
 
 ```env
-# Azure Blob Storage
-AZURE_STORAGE_TENANT_ID=your-tenant-id
-AZURE_STORAGE_CLIENT_ID=your-client-id
-AZURE_STORAGE_CLIENT_SECRET=your-client-secret
-AZURE_STORAGE_ACCOUNT_NAME=your-storage-account-name
-AZURE_STORAGE_CONTAINER=your-container-name
+# Microsoft Graph Grundkonfiguration
+MSGRAPH_TENTANT_ID=your-tenant-id
+MSGRAPH_DEFAULT_SUFFIX=your-domain.com
+MICROSOFT_REDIRECT_URI=https://your-app.com/auth/callback
 
-# Azure AI Search (optional - only if using indexer features)
-AZURE_SEARCH_SERVICE_NAME=your-search-service-name
-AZURE_SEARCH_ADMIN_API_KEY=your-admin-api-key
-AZURE_SEARCH_INDEX_NAME=your-index-name
-AZURE_SEARCH_API_VERSION=2024-07-01
+# Standard App Registration
+MSGRAPH_APP_ID=your-client-id
+MSGRAPH_APP_SECRET_KEY=your-client-secret
+
+# OneDrive App Registration (optional)
+MSGRAPH_APP_ID_ONEDRIVE=your-onedrive-client-id
+MSGRAPH_APP_SECRET_KEY_ONEDRIVE=your-onedrive-client-secret
+
+# Subscription App Registration (optional)
+MSGRAPH_APP_ID_SUBSCRIPTION=your-subscription-client-id
+MSGRAPH_APP_SECRET_KEY_SUBSCRIPTION=your-subscription-client-secret
+
+# Subscription Secret
+MSGRAPH_SUBSCRIBE_SECRET=your-subscription-secret
+
+# Cache Konfiguration
+MSGRAPH_CACHE_SECONDS=300
 ```
 
 ### Azure Setup
 
-1. Create an App Registration in Azure Portal
-2. Create a Client Secret for the app
-3. Assign the **Storage Blob Data Contributor** role to your app on the Storage Account
-4. The package will automatically manage OAuth tokens with scope `https://storage.azure.com/.default`
+1. Erstellen Sie eine App-Registrierung im Azure Portal
+2. Erstellen Sie einen Client Secret für die App
+3. Weisen Sie die erforderlichen Microsoft Graph-Berechtigungen zu:
+   - `User.Read.All` - Für Benutzerverwaltung
+   - `Mail.Read` - Für E-Mail-Zugriff
+   - `Files.Read.All` - Für OneDrive-Zugriff
+   - `License.Read.All` - Für Lizenzverwaltung
+   - `Presence.Read.All` - Für Anwesenheitsstatus
 
-### Multiple Connections
+## Verwendung
 
-You can configure multiple Azure Storage connections in `config/azure-storage-laravel.php`:
+### Facade verwenden
 
 ```php
-'connections' => [
-    'azure' => [
-        'tenant_id' => env('AZURE_STORAGE_TENANT_ID'),
-        'client_id' => env('AZURE_STORAGE_CLIENT_ID'),
-        'client_secret' => env('AZURE_STORAGE_CLIENT_SECRET'),
-        'account_name' => env('AZURE_STORAGE_ACCOUNT_NAME'),
-        'container' => env('AZURE_STORAGE_CONTAINER'),
-    ],
-    'backup' => [
-        'tenant_id' => env('AZURE_STORAGE_BACKUP_TENANT_ID'),
-        'client_id' => env('AZURE_STORAGE_BACKUP_CLIENT_ID'),
-        'client_secret' => env('AZURE_STORAGE_BACKUP_CLIENT_SECRET'),
-        'account_name' => env('AZURE_STORAGE_BACKUP_ACCOUNT_NAME'),
-        'container' => env('AZURE_STORAGE_BACKUP_CONTAINER'),
-    ],
-],
+use Hwkdo\MsGraphLaravel\Facades\MsGraphLaravel;
+
+// Benutzer abrufen
+$user = MsGraphLaravel::getUser('user@domain.com');
+
+// Benutzerpräsenz abrufen
+$presence = MsGraphLaravel::getUserPresence('user@domain.com');
+
+// Benutzerteams abrufen
+$teams = MsGraphLaravel::getUserTeams('user@domain.com');
 ```
 
-## Usage
-
-### Using the Facade
+### Dependency Injection verwenden
 
 ```php
-use Hwkdo\AzureStorageLaravel\Facades\AzureStorageLaravel;
+use Hwkdo\MsGraphLaravel\Services\UserService;
+use Hwkdo\MsGraphLaravel\Services\LicenseService;
 
-// Upload a file
-$result = AzureStorageLaravel::uploadFile('document.pdf', storage_path('app/document.pdf'));
-// Returns: ['success' => true, 'url' => '...', 'blob_name' => 'document.pdf', 'size' => 12345, ...]
-
-// List all blobs
-$blobs = AzureStorageLaravel::listBlobs();
-// Returns: [['name' => 'file.pdf', 'url' => '...', 'size' => 12345, 'content_type' => 'application/pdf', ...], ...]
-
-// List blobs with prefix
-$blobs = AzureStorageLaravel::listBlobs('uploads/2024/');
-
-// Delete a blob
-$deleted = AzureStorageLaravel::deleteBlob('document.pdf');
-// Returns: true
-```
-
-### Using Multiple Connections
-
-```php
-// Use a specific connection
-$result = AzureStorageLaravel::connection('backup')->uploadFile('backup.zip', storage_path('app/backup.zip'));
-
-// List blobs from backup connection
-$blobs = AzureStorageLaravel::connection('backup')->listBlobs();
-```
-
-### Using Dependency Injection
-
-```php
-use Hwkdo\AzureStorageLaravel\AzureStorageLaravel;
-
-class FileController extends Controller
+class UserController extends Controller
 {
-    public function upload(Request $request, AzureStorageLaravel $storage)
+    public function __construct(
+        private UserService $userService,
+        private LicenseService $licenseService
+    ) {}
+
+    public function getUserInfo(string $email)
     {
-        $file = $request->file('document');
-        $tmpPath = $file->store('temp');
+        $user = $this->userService->getUser($email);
+        $licenses = $this->licenseService->getLicenseDetails($email);
         
-        try {
-            $result = $storage->uploadFile(
-                $file->getClientOriginalName(),
-                storage_path('app/' . $tmpPath)
-            );
-            
-            unlink(storage_path('app/' . $tmpPath));
-            
-            return response()->json($result);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        return response()->json([
+            'user' => $user,
+            'licenses' => $licenses
+        ]);
     }
 }
 ```
 
-## Azure AI Search Indexer Operations
+## Verfügbare Services
 
-The package also supports Azure AI Search indexer management:
+### UserService
 
-### Run an Indexer
+Verwaltung von Microsoft 365-Benutzern:
 
 ```php
-use Hwkdo\AzureStorageLaravel\Facades\AzureStorageLaravel;
+use Hwkdo\MsGraphLaravel\Services\UserService;
 
-// Trigger an indexer to run (using config default)
-AzureStorageLaravel::runIndexer();
-// Returns: true (202 Accepted - indexer run queued)
+$userService = app(UserService::class);
 
-// Or specify a specific indexer name
-AzureStorageLaravel::runIndexer('my-indexer-name');
+// Benutzer nach UPN abrufen
+$user = $userService->getUserByUpn('user@domain.com');
+
+// Benutzer nach Alias abrufen
+$user = $userService->getUserByAlias('user');
+
+// Benutzer aktualisieren
+$userService->update('user@domain.com', ['displayName' => 'New Name']);
+
+// Benutzerpräsenz abrufen
+$presence = $userService->getUserPresence('user@domain.com');
+
+// Benutzerteams abrufen
+$teams = $userService->getUserTeams('user@domain.com');
+
+// Direkte Gruppen abrufen
+$groups = $userService->getUserDirectGroups('user@domain.com');
+
+// Transitive Gruppen abrufen
+$groups = $userService->getUserTransitiveGroups('user@domain.com');
 ```
 
-### Get Indexer Status
+### LicenseService
+
+Verwaltung von Microsoft 365-Lizenzen:
 
 ```php
-// Check the status of default indexer
-$status = AzureStorageLaravel::getIndexerStatus();
+use Hwkdo\MsGraphLaravel\Services\LicenseService;
 
-// Or check a specific indexer
-$status = AzureStorageLaravel::getIndexerStatus('my-indexer-name');
+$licenseService = app(LicenseService::class);
 
-// Returns array with status information:
-// [
-//     'status' => 'running',
-//     'lastResult' => [...],
-//     'executionHistory' => [...],
-// ]
+// Lizenzdetails abrufen
+$licenses = $licenseService->getLicenseDetails('user@domain.com');
 ```
 
-### Reset an Indexer
+### MailboxService
+
+E-Mail-Verwaltung:
 
 ```php
-// Reset the default indexer (clears execution history)
-AzureStorageLaravel::resetIndexer();
-// Returns: true
+use Hwkdo\MsGraphLaravel\Services\MailboxService;
 
-// Or reset a specific indexer
-AzureStorageLaravel::resetIndexer('my-indexer-name');
+$mailboxService = app(MailboxService::class);
+
+// E-Mails abrufen, senden und verwalten
 ```
 
-### List All Indexers
+### OneDriveService
+
+OneDrive-Dateiverwaltung:
 
 ```php
-// Get list of all indexers in the search service
-$indexers = AzureStorageLaravel::listIndexers();
+use Hwkdo\MsGraphLaravel\Services\OneDriveService;
 
-// Returns array of indexers:
-// [
-//     ['name' => 'indexer1', 'dataSourceName' => '...', ...],
-//     ['name' => 'indexer2', 'dataSourceName' => '...', ...],
-// ]
+$oneDriveService = app(OneDriveService::class);
+
+// Dateien hochladen, herunterladen und verwalten
 ```
 
-### Example: Run Indexer After Upload
+### OutOfOfficeTemplateService
+
+Abwesenheitsvorlagen-Verwaltung:
 
 ```php
-use Hwkdo\AzureStorageLaravel\Facades\AzureStorageLaravel;
+use Hwkdo\MsGraphLaravel\Services\OutOfOfficeTemplateService;
 
-// Upload a file
-$result = AzureStorageLaravel::uploadFile('document.pdf', storage_path('app/document.pdf'));
+$oooService = app(OutOfOfficeTemplateService::class);
 
-// Trigger the indexer to process the new file
-if ($result['success']) {
-    AzureStorageLaravel::runIndexer('document-indexer');
+// Abwesenheitsvorlagen erstellen und verwalten
+```
+
+## Artisan Commands
+
+Das Package stellt folgende Artisan-Befehle zur Verfügung:
+
+```bash
+# Abonnements überprüfen
+php artisan msgraph:check-subscriptions
+
+# Aktive Benutzer mit Abwesenheits-Cache aktualisieren
+php artisan msgraph:refresh-active-users-with-ooo-cache
+```
+
+## Webhook-Subscriptions
+
+Das Package unterstützt Microsoft Graph Webhook-Subscriptions für Echtzeit-Updates:
+
+### Konfiguration
+
+```php
+// config/ms-graph-laravel.php
+'subscriptions' => [
+    'mail_subscription' => [
+        'filepath' => storage_path('app/subscriptions/'),
+        'upn' => 'user@domain.com',
+        'resource' => "/users/user@domain.com/mailFolders('inbox')/messages",
+        'notificationUrl' => 'https://your-app.com/webhook/mail',
+        'changeType' => 'created',
+    ],
+    'onedrive_subscription' => [
+        'filepath' => storage_path('app/subscriptions/'),
+        'upn' => 'user@domain.com',
+        'resource' => '/users/user@domain.com/drive/root',
+        'notificationUrl' => 'https://your-app.com/webhook/onedrive',
+        'changeType' => 'updated',
+    ],
+],
+```
+
+### Webhook-Handler
+
+```php
+use Hwkdo\MsGraphLaravel\Services\SubscriptionService;
+
+class WebhookController extends Controller
+{
+    public function handleMailWebhook(Request $request, SubscriptionService $subscriptionService)
+    {
+        $subscriptionService->handleWebhook($request->all());
+        
+        return response()->json(['status' => 'success']);
+    }
 }
 ```
 
 ## Features
 
-### Azure Blob Storage
-- **Automatic Token Management**: OAuth tokens are automatically fetched, cached, and refreshed
-- **Multiple Connections**: Support for multiple Azure Storage accounts
-- **Blob Name Sanitization**: Automatic sanitization of blob names (ASCII conversion, slugification)
+### Microsoft Graph Integration
+- **Automatische Token-Verwaltung**: OAuth-Tokens werden automatisch abgerufen, gecacht und erneuert
+- **Mehrere App-Registrierungen**: Unterstützung für verschiedene Microsoft Graph-Anwendungen
+- **Umfassende API-Abdeckung**: Benutzer, E-Mails, OneDrive, Lizenzen, Teams und mehr
 
-### Azure AI Search
-- **Indexer Management**: Run, reset, and monitor Azure AI Search indexers
-- **Status Monitoring**: Check indexer execution status and history
-- **List Operations**: View all configured indexers
+### Services
+- **UserService**: Vollständige Benutzerverwaltung mit UPN- und Alias-Suche
+- **LicenseService**: Lizenzverwaltung und -überwachung
+- **MailboxService**: E-Mail-Verwaltung und -verarbeitung
+- **OneDriveService**: Datei-Upload, -Download und -verwaltung
+- **OutOfOfficeTemplateService**: Abwesenheitsvorlagen-Management
 
-### General
-- **Laravel HTTP Client**: Uses Laravel's built-in HTTP client for all requests
-- **Comprehensive Logging**: All operations are logged for debugging
-- **Exception Handling**: Proper error handling with detailed error messages
+### Webhooks & Subscriptions
+- **Echtzeit-Updates**: Webhook-Subscriptions für E-Mails und OneDrive
+- **Automatische Verwaltung**: Subscription-Lebenszyklus wird automatisch verwaltet
+- **Mehrere Endpunkte**: Unterstützung für verschiedene Webhook-Endpunkte
 
-## API Reference
+### Allgemein
+- **Laravel HTTP Client**: Verwendet Laravels eingebauten HTTP-Client für alle Anfragen
+- **Umfassendes Logging**: Alle Operationen werden für Debugging-Zwecke geloggt
+- **Exception Handling**: Ordnungsgemäße Fehlerbehandlung mit detaillierten Fehlermeldungen
+- **Caching**: Konfigurierbare Cache-Zeiten für bessere Performance
 
-### `listBlobs(?string $prefix = null): array`
+## API-Referenz
 
-List all blobs in the configured container.
+### UserService
 
-**Parameters:**
-- `$prefix` (optional): Filter blobs by prefix
+#### `getUser(string $mail): ?User`
+Ruft einen Benutzer anhand der E-Mail-Adresse ab.
 
-**Returns:** Array of blob information including name, url, size, content_type, last_modified
+**Parameter:**
+- `$mail`: E-Mail-Adresse des Benutzers
 
-### `uploadFile(string $blobName, string $pathToFile): array`
+**Rückgabe:** Microsoft Graph User-Objekt oder null
 
-Upload a file to Azure Blob Storage.
+#### `getUserByUpn(string $upn): User`
+Ruft einen Benutzer anhand des UPN (User Principal Name) ab.
 
-**Parameters:**
-- `$blobName`: The name for the blob (will be sanitized)
-- `$pathToFile`: Local path to the file to upload
+**Parameter:**
+- `$upn`: UPN des Benutzers
 
-**Returns:** Array with success, url, blob_name, container, size, content_type
+**Rückgabe:** Microsoft Graph User-Objekt
 
-### `deleteBlob(string $blobName): bool`
+#### `getUserByAlias(string $alias): ?User`
+Ruft einen Benutzer anhand des Alias ab.
 
-Delete a blob from Azure Blob Storage.
+**Parameter:**
+- `$alias`: Alias des Benutzers
 
-**Parameters:**
-- `$blobName`: Name of the blob to delete
+**Rückgabe:** Microsoft Graph User-Objekt oder null
 
-**Returns:** `true` on success
+#### `update(string $upn, array $data): User`
+Aktualisiert Benutzerdaten.
 
-### `connection(string $connection): self`
+**Parameter:**
+- `$upn`: UPN des Benutzers
+- `$data`: Zu aktualisierende Daten
 
-Switch to a different connection.
+**Rückgabe:** Aktualisiertes Microsoft Graph User-Objekt
 
-**Parameters:**
-- `$connection`: Name of the connection from config
+#### `getUserPresence(string $upn): Presence`
+Ruft den Anwesenheitsstatus eines Benutzers ab.
 
-**Returns:** New instance for the specified connection
+**Parameter:**
+- `$upn`: UPN des Benutzers
 
-### `runIndexer(?string $indexerName = null): bool`
+**Rückgabe:** Microsoft Graph Presence-Objekt
 
-Run an Azure AI Search indexer.
+#### `getUserTeams(string $upn): array`
+Ruft die Teams eines Benutzers ab.
 
-**Parameters:**
-- `$indexerName` (optional): Name of the indexer to run. Uses `ai_search.index_name` from config if not provided.
+**Parameter:**
+- `$upn`: UPN des Benutzers
 
-**Returns:** `true` on success (202 Accepted)
+**Rückgabe:** Array von Microsoft Graph Team-Objekten
 
-### `getIndexerStatus(?string $indexerName = null): array`
+#### `getUserDirectGroups(string $upn): array`
+Ruft die direkten Gruppen eines Benutzers ab.
 
-Get the status and execution history of an indexer.
+**Parameter:**
+- `$upn`: UPN des Benutzers
 
-**Parameters:**
-- `$indexerName` (optional): Name of the indexer. Uses `ai_search.index_name` from config if not provided.
+**Rückgabe:** Array von Microsoft Graph Group-Objekten
 
-**Returns:** Array with status, lastResult, executionHistory
+#### `getUserTransitiveGroups(string $upn): array`
+Ruft die transitiven Gruppen eines Benutzers ab.
 
-### `resetIndexer(?string $indexerName = null): bool`
+**Parameter:**
+- `$upn`: UPN des Benutzers
 
-Reset an indexer, clearing its execution history.
+**Rückgabe:** Array von Microsoft Graph Group-Objekten
 
-**Parameters:**
-- `$indexerName` (optional): Name of the indexer to reset. Uses `ai_search.index_name` from config if not provided.
+### LicenseService
 
-**Returns:** `true` on success
+#### `getLicenseDetails(string $upn): array`
+Ruft die Lizenzdetails eines Benutzers ab.
 
-### `listIndexers(): array`
+**Parameter:**
+- `$upn`: UPN des Benutzers
 
-List all indexers in the Azure AI Search service.
-
-**Returns:** Array of indexer configurations
+**Rückgabe:** Array von Microsoft Graph LicenseDetails-Objekten
 
 ## Testing
 
@@ -302,21 +354,21 @@ composer test
 
 ## Changelog
 
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
+Bitte sehen Sie [CHANGELOG](CHANGELOG.md) für weitere Informationen zu den letzten Änderungen.
 
 ## Contributing
 
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
+Bitte sehen Sie [CONTRIBUTING](CONTRIBUTING.md) für Details.
 
 ## Security Vulnerabilities
 
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
+Bitte überprüfen Sie [unsere Sicherheitsrichtlinie](../../security/policy), wie Sicherheitslücken gemeldet werden.
 
 ## Credits
 
 - [hwkdo](https://github.com/hwkdo)
-- [All Contributors](../../contributors)
+- [Alle Contributors](../../contributors)
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+Die MIT-Lizenz (MIT). Bitte sehen Sie [License File](LICENSE.md) für weitere Informationen.
