@@ -96,7 +96,7 @@ class SubscriptionService
 
         $output = [];
         foreach ($response->getValue() as $row) {
-            array_push($output, $row->jsonSerialize());
+            array_push($output, $row);
         }
 
         return $output;
