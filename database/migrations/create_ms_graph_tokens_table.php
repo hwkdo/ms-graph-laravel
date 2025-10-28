@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('ms_graph_tokens', function (Blueprint $table) {
+        Schema::create('ms_graph_laravel_tokens', function (Blueprint $table) {
             $table->increments('id');
             $table->string('token', 4096);
             $table->datetime('expiration');
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('ms_graph_tokens');
+        Schema::dropIfExists('ms_graph_laravel_tokens');
     }
 };

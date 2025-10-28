@@ -4,7 +4,7 @@ return [
     'tenant_id' => env('MSGRAPH_TENTANT_ID'),
     'default_suffix' => env('MSGRAPH_DEFAULT_SUFFIX'),
     'redirect' => env('MICROSOFT_REDIRECT_URI'),
-    
+
     'azure_app_registrations' => [
         'default' => [
             'client_id' => env('MSGRAPH_APP_ID'),
@@ -19,9 +19,9 @@ return [
             'client_secret' => env('MSGRAPH_APP_SECRET_KEY_SUBSCRIPTION'),
         ],
     ],
-    
+
     'subscription_secret' => env('MSGRAPH_SUBSCRIBE_SECRET'),
-    
+
     'subscriptions' => [
         'intracollect_mail' => [
             'filepath' => storage_path('app/non-public/files/formwerk/'),
@@ -59,6 +59,6 @@ return [
             'changeType' => 'updated',
         ],
     ],
-    
+
     'cache_seconds' => env('MSGRAPH_CACHE_SECONDS', 300),
 ];

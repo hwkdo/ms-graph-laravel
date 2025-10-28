@@ -28,7 +28,8 @@
     "autoload": {
         "psr-4": {
             "Hwkdo\\MsGraphLaravel\\": "src/",
-            "Hwkdo\\MsGraphLaravel\\Database\\Factories\\": "database/factories/"
+            "Hwkdo\\MsGraphLaravel\\Database\\Factories\\": "database/factories/",
+            "Hwkdo\\MsGraphLaravel\\Database\\Seeders\\": "database/seeders/"
         }
     },
     "autoload-dev": {

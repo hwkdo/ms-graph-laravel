@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class Token extends Model
 {
     protected $guarded = [];
-    protected $table = 'ms_graph_tokens';
+
+    protected $table = 'ms_graph_laravel_tokens';
+
     protected $casts = [
         'expiration' => 'datetime',
     ];
@@ -30,7 +32,7 @@ class Token extends Model
 
     private static function newToken($type): string
     {
-        $guzzle = new \GuzzleHttp\Client();
+        $guzzle = new \GuzzleHttp\Client;
         $url = 'https://login.microsoftonline.com/'.config('ms-graph-laravel.tenant_id').'/oauth2/v2.0/token';
         $accessToken = json_decode($guzzle->post($url, [
             'form_params' => [

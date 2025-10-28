@@ -2,8 +2,8 @@
 
 namespace Hwkdo\MsGraphLaravel\Commands;
 
-use Illuminate\Console\Command;
 use Hwkdo\MsGraphLaravel\Services\CacheService;
+use Illuminate\Console\Command;
 
 class refreshAktivUsersWithOooCache extends Command
 {

@@ -2,12 +2,10 @@
 
 namespace Hwkdo\MsGraphLaravel\Services;
 
+use Exception;
 use Hwkdo\MsGraphLaravel\Client;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface;
-use Exception;
 use Microsoft\Graph\GraphServiceClient;
-use Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration;
-use Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters;
 
 class UserService implements MsGraphUserServiceInterface
 {
@@ -44,8 +42,8 @@ class UserService implements MsGraphUserServiceInterface
     {
         $filter = "proxyAddresses/any(c:c eq 'SMTP:".$alias."')";
 
-        $requestConfiguration = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration();
-        $requestConfiguration->queryParameters = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters();
+        $requestConfiguration = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration;
+        $requestConfiguration->queryParameters = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters;
         $requestConfiguration->queryParameters->filter = $filter;
 
         $response = self::$graph->users()

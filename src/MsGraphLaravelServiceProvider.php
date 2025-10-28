@@ -26,7 +26,15 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
             ->hasMigrations([
                 'create_ms_graph_tokens_table',
                 'create_ms_graph_subscriptions_table',
+                'create_graph_webhook_job_mappings_table',
+                'add_subscription_fields_to_graph_webhook_job_mappings_table',
             ]);
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+        $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
     }
 
     public function packageRegistered(): void

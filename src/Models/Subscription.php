@@ -7,20 +7,33 @@ use Illuminate\Database\Eloquent\Model;
 class Subscription extends Model
 {
     protected $guarded = [];
+
     protected $table = 'ms_graph_subscriptions';
+
     protected $casts = [
         'expiration' => 'datetime',
     ];
 
-    public function getConfigAttribute(): array|null
+    public function getConfigAttribute(): ?array
     {
-        $collection = collect(config('ms-graph-laravel.subscriptions'));
-        foreach ($collection as $name => $data) {
-            if ($data['resource'] == $this->resource && $data['notificationUrl'] == $this->notificationUrl) {
-                return $data;
-            }
+        $mapping = GraphWebhookJobMapping::findByResourceAndNotificationUrl(
+            $this->resource,
+            $this->notificationUrl
+        );
+
+        if ($mapping) {
+            return $mapping->getSubscriptionData();
         }
 
         return null;
+    }
+
+    /**
+     * Get the webhook job mapping for this subscription.
+     */
+    public function webhookMapping(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(GraphWebhookJobMapping::class, 'resource', 'resource')
+            ->where('notification_url', $this->notificationUrl);
     }
 }

@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('ms_graph_laravel_subscriptions', function (Blueprint $table) {
+        Schema::create('ms_graph_laravel_webhook_job_mappings', function (Blueprint $table) {
             $table->id();
-            $table->string('graph_id')->unique();
-            $table->text('resource');
-            $table->text('notificationUrl');
-            $table->datetime('expiration');
+            $table->string('webhook_type')->unique();
+            $table->string('job_class');
+            $table->boolean('is_active')->default(true);
+            $table->text('description')->nullable();
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('ms_graph_laravel_subscriptions');
+        Schema::dropIfExists('ms_graph_laravel_webhook_job_mappings');
     }
 };

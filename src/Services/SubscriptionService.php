@@ -2,9 +2,9 @@
 
 namespace Hwkdo\MsGraphLaravel\Services;
 
+use GuzzleHttp\Exception\ClientException;
 use Hwkdo\MsGraphLaravel\Client;
 use Hwkdo\MsGraphLaravel\Models\Subscription;
-use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\Log;
 use Microsoft\Graph\Generated\Models\Subscription as GraphSubscription;
 use Microsoft\Graph\GraphServiceClient;

@@ -9,7 +9,7 @@ class OutOfOfficeTemplateService
 {
     public function getTemplate(User $user, User $colleague, ?Carbon $limit = null, ?string $notice = null): string
     {
-        if($limit) {
+        if ($limit) {
             $template = <<<EOD
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns:m="http://schemas.microsoft.com/office/2004/12/om ▶
             /* Font Definitions */\n
@@ -68,7 +68,7 @@ class OutOfOfficeTemplateService
             EOD;
         }
 
-        if($limit) {
+        if ($limit) {
             $template = str_replace('&lt;DATUM&gt;', $limit->format('d.m.Y'), $template);
             $template = str_replace('&lt;VORNAME&gt;', $colleague->vorname, $template);
             $template = str_replace('&lt;NACHNAME&gt;', $colleague->nachname, $template);
@@ -76,8 +76,7 @@ class OutOfOfficeTemplateService
             $template = str_replace('&lt;EMAIL&gt;', $colleague->email, $template);
             $template = str_replace('&lt;MEIN_VORNAME&gt;', $user->vorname, $template);
             $template = str_replace('&lt;MEIN_NACHNAME&gt;', $user->nachname, $template);
-        }
-        else {
+        } else {
             $template = str_replace('&lt;VORNAME&gt;', $colleague->vorname, $template);
             $template = str_replace('&lt;NACHNAME&gt;', $colleague->nachname, $template);
             $template = str_replace('&lt;TELEFON&gt;', $colleague->telefon, $template);
@@ -93,7 +92,7 @@ class OutOfOfficeTemplateService
             $emptyParagraph = "<p class=MsoNormal style='text-autospace:none'><span style='font-size:10.0pt;font-family:\"Arial\",sans-serif'><o:p>&nbsp;</o:p></span></p>";
             $template = str_replace($greetingMarker, $noticeParagraph.$emptyParagraph.$greetingMarker, $template);
         }
+
         return $template;
     }
-    
 }

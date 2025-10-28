@@ -3,12 +3,10 @@
 namespace Hwkdo\MsGraphLaravel\Services;
 
 use Hwkdo\MsGraphLaravel\Client;
-use Microsoft\Graph\Generated\Models\FileAttachment;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Microsoft\Graph\Generated\Models\FileAttachment;
 use Microsoft\Graph\GraphServiceClient;
-use Microsoft\Graph\Generated\Users\Item\Messages\MessagesRequestBuilderGetRequestConfiguration;
-use Microsoft\Graph\Generated\Users\Item\Messages\MessagesRequestBuilderGetQueryParameters;
 
 class MailService
 {
@@ -77,9 +75,9 @@ class MailService
 
     public static function list($upn, $onlyUnread = false)
     {
-        $requestConfiguration = new \Microsoft\Graph\Generated\Users\Item\Messages\MessagesRequestBuilderGetRequestConfiguration();
-        $requestConfiguration->queryParameters = new \Microsoft\Graph\Generated\Users\Item\Messages\MessagesRequestBuilderGetQueryParameters();
-        
+        $requestConfiguration = new \Microsoft\Graph\Generated\Users\Item\Messages\MessagesRequestBuilderGetRequestConfiguration;
+        $requestConfiguration->queryParameters = new \Microsoft\Graph\Generated\Users\Item\Messages\MessagesRequestBuilderGetQueryParameters;
+
         if ($onlyUnread) {
             $requestConfiguration->queryParameters->filter = 'isRead eq false';
         }
