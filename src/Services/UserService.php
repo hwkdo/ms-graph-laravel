@@ -267,4 +267,26 @@ class UserService implements MsGraphUserServiceInterface
             return false;
         }
     }
+
+    public function removeUserFromGroup(string $upn, string $groupId): bool
+    {
+        try {
+            // Hole die User-ID
+            $user = self::getUserByUpn($upn);
+            $userId = $user->getId();
+
+            // Entferne den User aus der Gruppe
+            self::$graph->groups()
+                ->byGroupId($groupId)
+                ->members()
+                ->byDirectoryObjectId($userId)
+                ->ref()
+                ->delete()
+                ->wait();
+
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
 }

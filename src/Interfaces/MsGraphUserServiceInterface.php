@@ -27,4 +27,6 @@ interface MsGraphUserServiceInterface
     public function getUserDetails(string $upn): ?object;
 
     public function activateUser(string $upn): bool;
+
+    public function removeUserFromGroup(string $upn, string $groupId): bool;
 }
