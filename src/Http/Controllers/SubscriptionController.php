@@ -59,7 +59,7 @@ class SubscriptionController extends Controller
                         : $data[0]['resource'];
 
                     // Dispatche den Job dynamisch
-                    $jobClass::dispatch($jobData);
+                    $jobClass::dispatch($data[0]);
 
                     Log::info('Ms-Graph-Laravel: Job dispatched', [
                         'typ' => $typ,

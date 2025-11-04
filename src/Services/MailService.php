@@ -20,11 +20,9 @@ class MailService
 
     public static function get($resource)
     {
-        return self::$graph->me()
-            ->messages()
-            ->byMessageId($resource)
-            ->get()
-            ->wait();
+        $upn = str($resource)->after("Users/")->before("/Messages/")->value();
+        $id = str($resource)->after("/Messages/")->value();
+        return self::getByUpnAndId($upn, $id);
     }
 
     public static function getByUpnAndId($upn, $id)

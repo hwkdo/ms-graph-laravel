@@ -138,15 +138,9 @@ class AuthenticationService implements MsGraphAuthenticationServiceInterface
 
     private function deletePasswordMethod(string $upn, string $methodId): bool
     {
-        self::$graph->users()
-            ->byUserId($upn)
-            ->authentication()
-            ->passwordMethods()
-            ->byPasswordAuthenticationMethodId($methodId)
-            ->delete()
-            ->wait();
-
-        return true;
+        // Microsoft Graph erlaubt das Löschen der Passwort-Authentifizierungsmethode nicht.
+        // Stattdessen geben wir false zurück, damit Aufrufer entsprechend reagieren können.
+        return false;
     }
 
     private function deletePhoneMethod(string $upn, string $methodId): bool

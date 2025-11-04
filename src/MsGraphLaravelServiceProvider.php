@@ -61,6 +61,11 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
         );
 
         $this->app->bind(
+            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailServiceInterface::class,
+            \Hwkdo\MsGraphLaravel\Services\MailService::class
+        );
+
+        $this->app->bind(
             \Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface::class,
             \Hwkdo\MsGraphLaravel\Services\UserService::class
         );
