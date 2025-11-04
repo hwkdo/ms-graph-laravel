@@ -71,15 +71,9 @@ class SubscriptionService
             }
 
             return true;
-        } catch (ClientException $e) {
-            if ($e->getResponse()->getStatusCode() == 404) {
-                Log::info('Subscription bereits entfernt');
-                if ($sub) {
-                    $sub->delete();
-                }
-
-                return true;
-            }
+        } catch (\Exception $e) {
+            Log::error('SubscriptionService - Fehler beim Entfernen der Subscription: ' . $e->getMessage());
+            return false;
         }
 
         return false;
