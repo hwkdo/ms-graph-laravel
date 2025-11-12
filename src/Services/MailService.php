@@ -67,7 +67,7 @@ class MailService
     public static function getAttachmentContent(FileAttachment $attachment)
     {
         return base64_decode(
-            $attachment->getContentBytes()->getContents()
+            $attachment->getContentBytes()
         );
     }
 
@@ -84,7 +84,8 @@ class MailService
             ->byUserId($upn)
             ->messages()
             ->get($requestConfiguration)
-            ->wait();
+            ->wait()
+            ->getValue();
     }
 
     public static function update($upn, $id, $body)
