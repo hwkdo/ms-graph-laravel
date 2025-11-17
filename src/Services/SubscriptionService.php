@@ -8,21 +8,21 @@ use Hwkdo\MsGraphLaravel\Models\Subscription;
 use Illuminate\Support\Facades\Log;
 use Microsoft\Graph\Generated\Models\Subscription as GraphSubscription;
 use Microsoft\Graph\GraphServiceClient;
+use Throwable;
 
 class SubscriptionService
 {
-    protected static GraphServiceClient $graph;
+    protected GraphServiceClient $graph;
 
-    public function __construct()
+    public function __construct(public Client $client)
     {
-        $g = new Client;
-        self::$graph = $g('subscription');
+        $this->graph = ($this->client)('subscription');
     }
 
     /*
     ** https://learn.microsoft.com/en-us/graph/api/subscription-post-subscriptions?view=graph-rest-1.0&tabs=http#request
     */
-    public static function subscribe($resource, $notificationUrl, $changeType): bool
+    public function subscribe(string $resource, string $notificationUrl, string $changeType): bool
     {
         // Create Subscription object for v2
         $subscription = new GraphSubscription;
@@ -36,7 +36,7 @@ class SubscriptionService
         $subscription->setClientState(config('ms-graph-laravel.subscription_secret'));
         $subscription->setLatestSupportedTlsVersion('v1_2');
 
-        $response = self::$graph->subscriptions()
+        $response = $this->graph->subscriptions()
             ->post($subscription)
             ->wait();
 
@@ -57,34 +57,52 @@ class SubscriptionService
     /*
     ** https://learn.microsoft.com/en-us/graph/api/subscription-delete?view=graph-rest-1.0&tabs=http#request
     */
-    public static function unsubscribe($id): bool
+    public function unsubscribe(string $id): bool
     {
-        $sub = Subscription::where('graph_id', $id)->first();
-        try {
-            $result = self::$graph->subscriptions()
-                ->bySubscriptionId($id)
-                ->delete()
-                ->wait();
+        $subscription = Subscription::where('graph_id', $id)->first();
 
-            if ($sub) {
-                $sub->delete();
-            }
-
-            return true;
-        } catch (\Exception $e) {
-            Log::error('SubscriptionService - Fehler beim Entfernen der Subscription: ' . $e->getMessage());
+        if (! $subscription) {
             return false;
         }
 
-        return false;
+        try {
+            $this->graph->subscriptions()
+                ->bySubscriptionId($id)
+                ->delete()
+                ->wait();
+        } catch (ClientException $exception) {
+            $status = $exception->getResponse()?->getStatusCode();
+
+            if (in_array($status, [404, 410], true)) {
+                Log::info('SubscriptionService - Graph-Subscription bereits entfernt.', [
+                    'graph_id' => $id,
+                    'status' => $status,
+                ]);
+            } else {
+                Log::warning('SubscriptionService - Graph-API Fehler beim Entfernen.', [
+                    'graph_id' => $id,
+                    'status' => $status,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        } catch (Throwable $exception) {
+            Log::error('SubscriptionService - Unerwarteter Fehler beim Entfernen.', [
+                'graph_id' => $id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+
+        $subscription->delete();
+
+        return true;
     }
 
     /*
     ** https://learn.microsoft.com/en-us/graph/api/subscription-list?view=graph-rest-1.0&tabs=http#example
     */
-    public static function list(): array
+    public function list(): array
     {
-        $response = self::$graph->subscriptions()
+        $response = $this->graph->subscriptions()
             ->get()
             ->wait();
 

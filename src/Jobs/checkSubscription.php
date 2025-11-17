@@ -40,6 +40,7 @@ class checkSubscription implements ShouldQueue
 
             $registeredSubscription = Subscription::where('resource', $values['resource'])
                 ->where('notificationUrl', $values['notificationUrl'])
+                ->latest()
                 ->first();
 
             if (! $registeredSubscription) {
@@ -64,11 +65,17 @@ class checkSubscription implements ShouldQueue
                     // return true;
                 } else {
                     Log::info('Braucht re-subscribe');
-                    $subscriptionService->unsubscribe($registeredSubscription->graph_id);
+                    try {
+                        $subscriptionService->unsubscribe($registeredSubscription->graph_id);
+                    } catch (\Exception $e) {
+                        Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht unsubscribed werden');
+                        // return false;
+                    }
                     $result = $subscriptionService->subscribe($values['resource'], $values['notificationUrl'], $values['changeType']);
 
                     if ($result) {
                         Log::info('MsGraph - MustHave Subscription '.$name.' erfolgreich registiert');
+                        $registeredSubscription->delete();
                         // return true;
                     } else {
                         Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht registriert werden');
