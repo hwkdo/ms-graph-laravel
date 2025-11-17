@@ -4,6 +4,7 @@ namespace Hwkdo\MsGraphLaravel\Services;
 
 use GuzzleHttp\Exception\ClientException;
 use Hwkdo\MsGraphLaravel\Client;
+use Hwkdo\MsGraphLaravel\Models\GraphWebhookJobMapping;
 use Hwkdo\MsGraphLaravel\Models\Subscription;
 use Illuminate\Support\Facades\Log;
 use Microsoft\Graph\Generated\Models\Subscription as GraphSubscription;
@@ -112,5 +113,61 @@ class SubscriptionService
         }
 
         return $output;
+    }
+
+    /**
+     * Check and sync all active subscriptions.
+     * Ensures all required subscriptions are registered and re-subscribes if needed.
+     */
+    public function checkAndSyncSubscriptions(): bool
+    {
+        $mustHaveSubscriptions = GraphWebhookJobMapping::getActiveSubscriptions();
+
+        foreach ($mustHaveSubscriptions as $subscription) {
+            $name = $subscription->name;
+            $values = $subscription->getSubscriptionData();
+
+            $registeredSubscription = Subscription::where('resource', $values['resource'])
+                ->where('notificationUrl', $values['notificationUrl'])
+                ->latest()
+                ->first();
+
+            if (! $registeredSubscription) {
+                // wenn mustHave noch nicht registriert
+                Log::info('MsGraph - MustHave Subscription '.$name.' noch nicht registriert');
+                $result = $this->subscribe($values['resource'], $values['notificationUrl'], $values['changeType']);
+
+                if ($result) {
+                    Log::info('MsGraph - MustHave Subscription '.$name.' erfolgreich registriert');
+                } else {
+                    Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht registriert werden');
+                }
+            } else {
+                // wenn mustHave bereits registriert
+                Log::info('MsGraph - MustHave Subscription '.$name.' bereits registriert');
+
+                $diffHours = \Carbon\Carbon::now()->diffInHours($registeredSubscription->expiration);
+                if ($registeredSubscription->expiration > \Carbon\Carbon::now() && $diffHours > 24) {
+                    Log::info('Expiration ist größer JETZT und loaenger als 24 Stunden gueltig.');
+                } else {
+                    Log::info('Braucht re-subscribe');
+                    try {
+                        $this->unsubscribe($registeredSubscription->graph_id);
+                    } catch (\Exception $e) {
+                        Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht unsubscribed werden');
+                    }
+                    $result = $this->subscribe($values['resource'], $values['notificationUrl'], $values['changeType']);
+
+                    if ($result) {
+                        Log::info('MsGraph - MustHave Subscription '.$name.' erfolgreich registriert');
+                        $registeredSubscription->delete();
+                    } else {
+                        Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht registriert werden');
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 }

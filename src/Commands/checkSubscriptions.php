@@ -2,8 +2,8 @@
 
 namespace Hwkdo\MsGraphLaravel\Commands;
 
+use Hwkdo\MsGraphLaravel\Services\SubscriptionService;
 use Illuminate\Console\Command;
-use Hwkdo\MsGraphLaravel\Jobs\checkSubscription;
 
 class checkSubscriptions extends Command
 {
@@ -11,10 +11,10 @@ class checkSubscriptions extends Command
 
     public $description = 'Check Subscriptions';
 
-    public function handle(): int
+    public function handle(SubscriptionService $subscriptionService): int
     {
         $this->comment('Checking Subscriptions');
-        checkSubscription::dispatch();
+        $subscriptionService->checkAndSyncSubscriptions();
         $this->comment('Subscriptions checked');
         return self::SUCCESS;
     }
