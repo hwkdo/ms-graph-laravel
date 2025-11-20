@@ -22,6 +22,7 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 checkSubscriptions::class,
                 refreshAktivUsersWithOooCache::class,
+
             ])
             ->discoversMigrations();
     }
@@ -30,6 +31,7 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
     {
         parent::boot();
         $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
+        $this->loadRoutesFrom(__DIR__.'/../routes/console.php');
     }
 
     public function packageRegistered(): void
