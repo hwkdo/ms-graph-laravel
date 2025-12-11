@@ -50,7 +50,14 @@ class MailboxService implements MsGraphMailboxServiceInterface
                 ->get()
                 ->wait();
 
-            return $mailboxSettings->getAutomaticRepliesSetting();
+            $data =  $mailboxSettings->getAutomaticRepliesSetting();
+            return [
+                'status' => $data->getStatus()->value(),
+                'internalReplyMessage' => $data->getInternalReplyMessage(),
+                'externalReplyMessage' => $data->getExternalReplyMessage(),
+                'scheduledStartDateTime' => ["dateTime" => $data->getScheduledStartDateTime()->getDateTime()],
+                'scheduledEndDateTime' => ["dateTime" => $data->getScheduledEndDateTime()->getDateTime()],
+            ];
         } catch (\Exception $e) {
             // Fallback: Create a default disabled setting if there's an enum error
             $automaticRepliesSetting = new AutomaticRepliesSetting;
