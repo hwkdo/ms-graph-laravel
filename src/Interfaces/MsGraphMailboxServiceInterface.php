@@ -6,7 +6,7 @@ use Illuminate\Support\Carbon;
 
 interface MsGraphMailboxServiceInterface
 {
-    public function getAutoReplySettings($username);
+    public function getAutoReplySettings($username, $raw = true);
 
     public function getSettings($username);
 

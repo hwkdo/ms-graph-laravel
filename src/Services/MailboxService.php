@@ -41,7 +41,7 @@ class MailboxService implements MsGraphMailboxServiceInterface
             ->wait();
     }
 
-    public function getAutoReplySettings($upn)
+    public function getAutoReplySettings($upn, $raw = true)
     {
         try {
             $mailboxSettings = self::$graph->users()
@@ -51,6 +51,9 @@ class MailboxService implements MsGraphMailboxServiceInterface
                 ->wait();
 
             $data =  $mailboxSettings->getAutomaticRepliesSetting();
+            if ($raw) {
+                return $data;
+            }
             return [
                 'status' => $data->getStatus()->value(),
                 'internalReplyMessage' => $data->getInternalReplyMessage(),
