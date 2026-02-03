@@ -33,6 +33,8 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
         parent::boot();
         $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
         $this->loadRoutesFrom(__DIR__.'/../routes/console.php');
+        $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
+
     }
 
     public function packageRegistered(): void
