@@ -4,6 +4,7 @@ namespace Hwkdo\MsGraphLaravel;
 
 use Hwkdo\MsGraphLaravel\Commands\checkSubscriptions;
 use Hwkdo\MsGraphLaravel\Commands\refreshAktivUsersWithOooCache;
+use Hwkdo\MsGraphLaravel\Commands\SyncOutOfOfficeCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -22,7 +23,7 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 checkSubscriptions::class,
                 refreshAktivUsersWithOooCache::class,
-
+                SyncOutOfOfficeCommand::class,
             ])
             ->discoversMigrations();
     }
