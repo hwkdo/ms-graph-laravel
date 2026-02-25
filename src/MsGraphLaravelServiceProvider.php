@@ -84,5 +84,10 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
             \Hwkdo\MsGraphLaravel\Interfaces\MsGraphOutOfOfficeTemplateServiceInterface::class,
             \Hwkdo\MsGraphLaravel\Services\OutOfOfficeTemplateService::class
         );
+
+        $this->app->bind(
+            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphGroupServiceInterface::class,
+            \Hwkdo\MsGraphLaravel\Services\GroupService::class
+        );
     }
 }
