@@ -23,14 +23,14 @@ class IntuneService implements MsGraphIntuneServiceInterface
     }
 
     /**
-     * @return array<int, array{id: string, deviceName: string|null, userDisplayName: string|null, serialNumber: string|null, imei: string|null, operatingSystem: string|null, osVersion: string|null, model: string|null, phoneNumber: string|null, wiFiMacAddress: string|null, complianceState: string|null}>
+     * @return array<int, array{id: string, deviceName: string|null, userDisplayName: string|null, serialNumber: string|null, imei: string|null, operatingSystem: string|null, osVersion: string|null, model: string|null, phoneNumber: string|null, wiFiMacAddress: string|null, complianceState: string|null, lastSyncDateTime: string|null}>
      */
     public function listManagedDevices(): array
     {
         try {
             $config = new ManagedDevicesRequestBuilderGetRequestConfiguration;
             $config->queryParameters = new ManagedDevicesRequestBuilderGetQueryParameters;
-            $config->queryParameters->select = ['id', 'deviceName', 'userDisplayName', 'serialNumber', 'imei', 'operatingSystem', 'osVersion', 'model', 'phoneNumber', 'wiFiMacAddress', 'complianceState'];
+            $config->queryParameters->select = ['id', 'deviceName', 'userDisplayName', 'serialNumber', 'imei', 'operatingSystem', 'osVersion', 'model', 'phoneNumber', 'wiFiMacAddress', 'complianceState', 'lastSyncDateTime'];
             $config->queryParameters->top = 999;
 
             $response = self::$graph->deviceManagement()->managedDevices()->get($config)->wait();
@@ -45,7 +45,7 @@ class IntuneService implements MsGraphIntuneServiceInterface
     }
 
     /**
-     * @return array{id: string, deviceName: string|null, userDisplayName: string|null, serialNumber: string|null, imei: string|null, operatingSystem: string|null, osVersion: string|null, model: string|null, phoneNumber: string|null, wiFiMacAddress: string|null, complianceState: string|null}|null
+     * @return array{id: string, deviceName: string|null, userDisplayName: string|null, serialNumber: string|null, imei: string|null, operatingSystem: string|null, osVersion: string|null, model: string|null, phoneNumber: string|null, wiFiMacAddress: string|null, complianceState: string|null, lastSyncDateTime: string|null}|null
      */
     public function findManagedDeviceBySerialNumber(string $serialNumber): ?array
     {
@@ -55,7 +55,7 @@ class IntuneService implements MsGraphIntuneServiceInterface
             $config = new ManagedDevicesRequestBuilderGetRequestConfiguration;
             $config->queryParameters = new ManagedDevicesRequestBuilderGetQueryParameters;
             $config->queryParameters->filter = $filter;
-            $config->queryParameters->select = ['id', 'deviceName', 'userDisplayName', 'serialNumber', 'imei', 'operatingSystem', 'osVersion', 'model', 'phoneNumber', 'wiFiMacAddress', 'complianceState'];
+            $config->queryParameters->select = ['id', 'deviceName', 'userDisplayName', 'serialNumber', 'imei', 'operatingSystem', 'osVersion', 'model', 'phoneNumber', 'wiFiMacAddress', 'complianceState', 'lastSyncDateTime'];
             $config->queryParameters->top = 1;
 
             $response = self::$graph->deviceManagement()->managedDevices()->get($config)->wait();
@@ -71,7 +71,7 @@ class IntuneService implements MsGraphIntuneServiceInterface
     }
 
     /**
-     * @return array{id: string, deviceName: string|null, userDisplayName: string|null, serialNumber: string|null, imei: string|null, operatingSystem: string|null, osVersion: string|null, model: string|null, phoneNumber: string|null, wiFiMacAddress: string|null, complianceState: string|null}
+     * @return array{id: string, deviceName: string|null, userDisplayName: string|null, serialNumber: string|null, imei: string|null, operatingSystem: string|null, osVersion: string|null, model: string|null, phoneNumber: string|null, wiFiMacAddress: string|null, complianceState: string|null, lastSyncDateTime: string|null}
      */
     private function mapManagedDevice(ManagedDevice $device): array
     {
@@ -79,6 +79,8 @@ class IntuneService implements MsGraphIntuneServiceInterface
         $complianceStateValue = $complianceState !== null
             ? (method_exists($complianceState, 'value') ? $complianceState->value() : (string) $complianceState)
             : null;
+
+        $lastSync = $device->getLastSyncDateTime();
 
         return [
             'id' => $device->getId() ?? '',
@@ -92,6 +94,7 @@ class IntuneService implements MsGraphIntuneServiceInterface
             'phoneNumber' => $device->getPhoneNumber(),
             'wiFiMacAddress' => $device->getWiFiMacAddress(),
             'complianceState' => $complianceStateValue,
+            'lastSyncDateTime' => $lastSync !== null ? $lastSync->format(\DateTimeInterface::ATOM) : null,
         ];
     }
 
