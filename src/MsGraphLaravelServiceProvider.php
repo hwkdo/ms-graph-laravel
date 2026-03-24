@@ -99,5 +99,10 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
             \Hwkdo\MsGraphLaravel\Interfaces\MsGraphIntuneServiceInterface::class,
             \Hwkdo\MsGraphLaravel\Services\IntuneService::class
         );
+
+        $this->app->bind(
+            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphShareServiceInterface::class,
+            \Hwkdo\MsGraphLaravel\Services\ShareService::class
+        );
     }
 }

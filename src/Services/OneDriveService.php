@@ -360,4 +360,5 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
             return $perm->getLink() && $perm->getLink()->getScope() == $scope;
         });
     }
+
 }
