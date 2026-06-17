@@ -5,6 +5,13 @@ namespace Hwkdo\MsGraphLaravel\Services;
 use Exception;
 use Hwkdo\MsGraphLaravel\Client;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface;
+use Hwkdo\MsGraphLaravel\Models\Token;
+use Illuminate\Support\Facades\Log;
+use Microsoft\Graph\Generated\Models\User;
+use Microsoft\Graph\Generated\Users\Item\UserItemRequestBuilderGetQueryParameters;
+use Microsoft\Graph\Generated\Users\Item\UserItemRequestBuilderGetRequestConfiguration;
+use Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters;
+use Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration;
 use Microsoft\Graph\GraphServiceClient;
 
 class UserService implements MsGraphUserServiceInterface
@@ -51,8 +58,8 @@ class UserService implements MsGraphUserServiceInterface
     {
         $filter = "proxyAddresses/any(c:c eq 'SMTP:".$alias."')";
 
-        $requestConfiguration = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration;
-        $requestConfiguration->queryParameters = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters;
+        $requestConfiguration = new UsersRequestBuilderGetRequestConfiguration;
+        $requestConfiguration->queryParameters = new UsersRequestBuilderGetQueryParameters;
         $requestConfiguration->queryParameters->filter = $filter;
 
         $response = self::$graph->users()
@@ -117,7 +124,7 @@ class UserService implements MsGraphUserServiceInterface
         // Wenn ein nextLink vorhanden ist, verwenden wir diesen
         if ($nextLink) {
             // Hole den Access Token
-            $token = \Hwkdo\MsGraphLaravel\Models\Token::getToken('default');
+            $token = Token::getToken('default');
 
             // Mache eine direkte HTTP-Anfrage an die nextLink URL
             $client = new \GuzzleHttp\Client;
@@ -132,7 +139,7 @@ class UserService implements MsGraphUserServiceInterface
 
             // Konvertiere die Rohdaten zurück in User-Objekte
             $users = array_map(function ($userData) {
-                $user = new \Microsoft\Graph\Generated\Models\User;
+                $user = new User;
                 $user->setId($userData['id'] ?? null);
                 $user->setUserPrincipalName($userData['userPrincipalName'] ?? null);
                 $user->setDisplayName($userData['displayName'] ?? null);
@@ -149,8 +156,8 @@ class UserService implements MsGraphUserServiceInterface
         }
 
         // Normale erste Seite
-        $requestConfiguration = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration;
-        $requestConfiguration->queryParameters = new \Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters;
+        $requestConfiguration = new UsersRequestBuilderGetRequestConfiguration;
+        $requestConfiguration->queryParameters = new UsersRequestBuilderGetQueryParameters;
         $requestConfiguration->queryParameters->top = $top;
 
         // Wenn eine Suche vorhanden ist, erstellen wir einen Filter
@@ -182,8 +189,8 @@ class UserService implements MsGraphUserServiceInterface
     public function getUserDetails(string $upn): ?object
     {
         try {
-            $requestConfiguration = new \Microsoft\Graph\Generated\Users\Item\UserItemRequestBuilderGetRequestConfiguration;
-            $requestConfiguration->queryParameters = new \Microsoft\Graph\Generated\Users\Item\UserItemRequestBuilderGetQueryParameters;
+            $requestConfiguration = new UserItemRequestBuilderGetRequestConfiguration;
+            $requestConfiguration->queryParameters = new UserItemRequestBuilderGetQueryParameters;
             $requestConfiguration->queryParameters->select = [
                 'id',
                 'userPrincipalName',
@@ -254,7 +261,7 @@ class UserService implements MsGraphUserServiceInterface
     public function activateUser(string $upn): bool
     {
         try {
-            $user = new \Microsoft\Graph\Generated\Models\User;
+            $user = new User;
             $user->setAccountEnabled(true);
 
             self::$graph->users()
@@ -286,6 +293,13 @@ class UserService implements MsGraphUserServiceInterface
 
             return true;
         } catch (Exception $e) {
+            Log::warning('MsGraph UserService: removeUserFromGroup failed', [
+                'upn' => $upn,
+                'group_id' => $groupId,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
             return false;
         }
     }
