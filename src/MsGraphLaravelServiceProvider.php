@@ -5,6 +5,7 @@ namespace Hwkdo\MsGraphLaravel;
 use Hwkdo\MsGraphLaravel\Commands\checkSubscriptions;
 use Hwkdo\MsGraphLaravel\Commands\refreshAktivUsersWithOooCache;
 use Hwkdo\MsGraphLaravel\Commands\SyncOutOfOfficeCommand;
+use Illuminate\Console\Scheduling\Schedule;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -32,7 +33,9 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
     {
         parent::boot();
         $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
-        $this->loadRoutesFrom(__DIR__.'/../routes/console.php');
+        $this->app->resolving(Schedule::class, function (): void {
+            require __DIR__.'/../routes/console.php';
+        });
         $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
 
     }
