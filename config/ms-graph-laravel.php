@@ -18,6 +18,92 @@ return [
             'client_id' => env('MSGRAPH_APP_ID_SUBSCRIPTION'),
             'client_secret' => env('MSGRAPH_APP_SECRET_KEY_SUBSCRIPTION'),
         ],
+        'teams_bot' => [
+            'client_id' => env('MSGRAPH_TEAMS_BOT_APP_ID'),
+            'client_secret' => env('MSGRAPH_TEAMS_BOT_APP_SECRET'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Teams Bot (Benachrichtigungen per 1:1-Chat)
+    |--------------------------------------------------------------------------
+    |
+    | Azure-Einrichtung (Checkliste):
+    | 1. App Registration für Bot (getrennt von MSGRAPH_APP_ID)
+    | 2. Azure Bot Resource mit Messaging Endpoint:
+    |    https://<teams-sdk-rest-host>/api/messages
+    | 3. Laravel Webhook für eingehende Events:
+    |    {PORTAL_URL}/api/kunden/ms-graph-laravel/teams-webhook
+    | 3. Teams App Manifest + Upload in Organisations-App-Katalog
+    |    - bots[].botId = MSGRAPH_TEAMS_BOT_APP_ID
+    |    - webApplicationInfo.id = MSGRAPH_TEAMS_BOT_APP_ID (Pflicht für ReadWriteSelfForUser!)
+    | 4. Application Permission TeamsAppInstallation.ReadWriteSelfForUser.All + Admin Consent
+    |    (oder ReadWriteForUser.All, wenn Manifest-Link nicht möglich)
+    |
+    | Env: MSGRAPH_TEAMS_BOT_ENABLED, MSGRAPH_TEAMS_BOT_APP_ID,
+    |      MSGRAPH_TEAMS_BOT_APP_SECRET, MSGRAPH_TEAMS_APP_CATALOG_ID,
+    |      MSGRAPH_TEAMS_BOT_HI_REPLY (optional)
+    */
+    'teams_bot' => [
+        'enabled' => env('MSGRAPH_TEAMS_BOT_ENABLED', false),
+        'app_id' => env('MSGRAPH_TEAMS_BOT_APP_ID'),
+        'app_secret' => env('MSGRAPH_TEAMS_BOT_APP_SECRET'),
+        'teams_app_id' => env('MSGRAPH_TEAMS_APP_CATALOG_ID'),
+        'service_url_fallback' => 'https://smba.trafficmanager.net/teams/',
+        'hi_reply_message' => env(
+            'MSGRAPH_TEAMS_BOT_HI_REPLY',
+            'Hallo! Schön, dass du da bist. Ich sende dir Benachrichtigungen aus dem HWKDO Intranet.',
+        ),
+        'auto_reply_message' => 'Dies ist ein Benachrichtigungs-Bot. Bitte bearbeiten Sie Anfragen im Intranet.',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | teams-sdk-rest (Node.js Teams SDK Wrapper)
+    |--------------------------------------------------------------------------
+    |
+    | Laravel kommuniziert mit dem Docker-Service external/teams-sdk-rest.
+    | Ausgehend: POST /v1/messages (Bearer TEAMS_API_KEY)
+    | Eingehend: Webhook mit HMAC X-Teams-Signature
+    |
+    | Env: TEAMS_SDK_REST_URL, TEAMS_API_KEY, TEAMS_WEBHOOK_SECRET,
+    |      TEAMS_SDK_TIMEOUT, TEAMS_WEBHOOK_LOG_REQUESTS (optional)
+    */
+    'teams_sdk_rest' => [
+        'base_url' => env('TEAMS_SDK_REST_URL', 'http://teams-sdk-rest:3978'),
+        'api_key' => env('TEAMS_API_KEY'),
+        'webhook_secret' => env('TEAMS_WEBHOOK_SECRET'),
+        'timeout' => env('TEAMS_SDK_TIMEOUT', 30),
+        'log_webhook_requests' => env('TEAMS_WEBHOOK_LOG_REQUESTS', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Teams Activity Feed (Benachrichtigungen im Activity Feed)
+    |--------------------------------------------------------------------------
+    |
+    | Sendet Benachrichtigungen direkt in den Teams Activity Feed eines Users
+    | via Graph API: POST /users/{id}/teamwork/sendActivityNotification
+    |
+    | Voraussetzungen:
+    | 1. Teams-App muss beim Empfänger installiert sein (gleiche App wie Teams Bot)
+    | 2. Application Permission TeamsActivity.Send oder TeamsActivity.Send.User
+    |    + Admin Consent auf der verwendeten App Registration
+    | 3. MSGRAPH_TEAMS_APP_CATALOG_ID muss gesetzt sein (teamsAppId im Request)
+    |
+    | Env: MSGRAPH_TEAMS_ACTIVITY_FEED_ENABLED, MSGRAPH_TEAMS_ACTIVITY_FEED_TYPE,
+    |      MSGRAPH_TEAMS_ACTIVITY_FEED_TOPIC,
+    |      MSGRAPH_TEAMS_ACTIVITY_FEED_WEB_URL (optional, muss Teams-Deep-Link sein:
+    |      https://teams.microsoft.com/l/…),
+    |      MSGRAPH_TEAMS_ACTIVITY_FEED_GRAPH_REGISTRATION (Standard: teams_bot)
+    */
+    'teams_activity_feed' => [
+        'enabled' => env('MSGRAPH_TEAMS_ACTIVITY_FEED_ENABLED', false),
+        'activity_type' => env('MSGRAPH_TEAMS_ACTIVITY_FEED_TYPE', 'systemDefault'),
+        'topic_title' => env('MSGRAPH_TEAMS_ACTIVITY_FEED_TOPIC', 'HWKDO Intranet'),
+        'topic_web_url' => env('MSGRAPH_TEAMS_ACTIVITY_FEED_WEB_URL'),
+        'graph_registration' => env('MSGRAPH_TEAMS_ACTIVITY_FEED_GRAPH_REGISTRATION', 'teams_bot'),
     ],
 
     'subscription_secret' => env('MSGRAPH_SUBSCRIBE_SECRET'),

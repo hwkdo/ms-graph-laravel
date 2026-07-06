@@ -2,7 +2,10 @@
 
 use Hwkdo\MsGraphLaravel\Http\Controllers\OutOfOfficeStatusController;
 use Hwkdo\MsGraphLaravel\Http\Controllers\SubscriptionController;
+use Hwkdo\MsGraphLaravel\Http\Controllers\TeamsWebhookController;
 use Illuminate\Support\Facades\Route;
+
+Route::post('api/kunden/ms-graph-laravel/teams-webhook', TeamsWebhookController::class)->name('ms-graph-laravel.teams-webhook');
 
 Route::post('api/kunden/ms-graph-subscription/{typ}', SubscriptionController::class)->name('ms-graph-laravel.subscription');
 

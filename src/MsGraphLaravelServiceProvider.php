@@ -3,8 +3,38 @@
 namespace Hwkdo\MsGraphLaravel;
 
 use Hwkdo\MsGraphLaravel\Commands\checkSubscriptions;
+use Hwkdo\MsGraphLaravel\Commands\InstallTeamsBotForAllUsersCommand;
 use Hwkdo\MsGraphLaravel\Commands\refreshAktivUsersWithOooCache;
 use Hwkdo\MsGraphLaravel\Commands\SyncOutOfOfficeCommand;
+use Hwkdo\MsGraphLaravel\Http\TeamsSdkRestClient;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphAppServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphAuthenticationServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphDateTimeServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphGroupServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphIntuneServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphLicenseServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailboxServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOneDriveServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOutOfOfficeTemplateServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphShareServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphTeamsActivityFeedServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphTeamsBotServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface;
+use Hwkdo\MsGraphLaravel\Services\AppService;
+use Hwkdo\MsGraphLaravel\Services\AuthenticationService;
+use Hwkdo\MsGraphLaravel\Services\DateTimeService;
+use Hwkdo\MsGraphLaravel\Services\GroupService;
+use Hwkdo\MsGraphLaravel\Services\IntuneService;
+use Hwkdo\MsGraphLaravel\Services\LicenseService;
+use Hwkdo\MsGraphLaravel\Services\MailboxService;
+use Hwkdo\MsGraphLaravel\Services\MailService;
+use Hwkdo\MsGraphLaravel\Services\OneDriveService;
+use Hwkdo\MsGraphLaravel\Services\OutOfOfficeTemplateService;
+use Hwkdo\MsGraphLaravel\Services\ShareService;
+use Hwkdo\MsGraphLaravel\Services\TeamsActivityFeedService;
+use Hwkdo\MsGraphLaravel\Services\TeamsBotService;
+use Hwkdo\MsGraphLaravel\Services\UserService;
 use Illuminate\Console\Scheduling\Schedule;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -23,6 +53,7 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasCommands([
                 checkSubscriptions::class,
+                InstallTeamsBotForAllUsersCommand::class,
                 refreshAktivUsersWithOooCache::class,
                 SyncOutOfOfficeCommand::class,
             ])
@@ -49,63 +80,75 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
 
         // Register service bindings
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphAuthenticationServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\AuthenticationService::class
+            MsGraphAuthenticationServiceInterface::class,
+            AuthenticationService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphDateTimeServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\DateTimeService::class
+            MsGraphDateTimeServiceInterface::class,
+            DateTimeService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphLicenseServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\LicenseService::class
+            MsGraphLicenseServiceInterface::class,
+            LicenseService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailboxServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\MailboxService::class
+            MsGraphMailboxServiceInterface::class,
+            MailboxService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\MailService::class
+            MsGraphMailServiceInterface::class,
+            MailService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\UserService::class
+            MsGraphUserServiceInterface::class,
+            UserService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphOneDriveServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\OneDriveService::class
+            MsGraphOneDriveServiceInterface::class,
+            OneDriveService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphOutOfOfficeTemplateServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\OutOfOfficeTemplateService::class
+            MsGraphOutOfOfficeTemplateServiceInterface::class,
+            OutOfOfficeTemplateService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphGroupServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\GroupService::class
+            MsGraphGroupServiceInterface::class,
+            GroupService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphAppServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\AppService::class
+            MsGraphAppServiceInterface::class,
+            AppService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphIntuneServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\IntuneService::class
+            MsGraphIntuneServiceInterface::class,
+            IntuneService::class
         );
 
         $this->app->bind(
-            \Hwkdo\MsGraphLaravel\Interfaces\MsGraphShareServiceInterface::class,
-            \Hwkdo\MsGraphLaravel\Services\ShareService::class
+            MsGraphShareServiceInterface::class,
+            ShareService::class
+        );
+
+        $this->app->singleton(TeamsSdkRestClient::class);
+
+        $this->app->bind(
+            MsGraphTeamsBotServiceInterface::class,
+            TeamsBotService::class
+        );
+
+        $this->app->bind(
+            MsGraphTeamsActivityFeedServiceInterface::class,
+            TeamsActivityFeedService::class
         );
     }
 }

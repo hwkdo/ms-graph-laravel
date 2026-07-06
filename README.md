@@ -82,7 +82,57 @@ PORTAL_URL=https://portal.hwkdo.com
 
 # Cache Konfiguration
 MSGRAPH_CACHE_SECONDS=300
+
+# Teams Bot (optional, für Benachrichtigungen per Teams-Chat)
+MSGRAPH_TEAMS_BOT_ENABLED=false
+MSGRAPH_TEAMS_BOT_APP_ID=your-teams-bot-app-id
+MSGRAPH_TEAMS_BOT_APP_SECRET=your-teams-bot-app-secret
+MSGRAPH_TEAMS_APP_CATALOG_ID=your-teams-catalog-app-id
+
+# teams-sdk-rest Docker Service (external/teams-sdk-rest)
+TEAMS_SDK_REST_URL=http://teams-sdk-rest:3978
+TEAMS_API_KEY=your-teams-api-key
+TEAMS_WEBHOOK_SECRET=your-shared-webhook-secret
+TEAMS_SDK_TIMEOUT=30
+TEAMS_WEBHOOK_LOG_REQUESTS=true
 ```
+
+### Teams Bot Einrichtung
+
+Der Teams-Bot nutzt den Docker-Service `external/teams-sdk-rest` (Microsoft Teams SDK v2).
+
+1. **App Registration** für den Bot anlegen (getrennt von `MSGRAPH_APP_ID`)
+2. **Azure Bot** (Bot Channels Registration) mit Microsoft App ID = Bot App ID
+   - Messaging Endpoint: `https://<teams-sdk-rest-host>/api/messages`
+   - Kanal Microsoft Teams aktivieren
+3. **teams-sdk-rest** starten und konfigurieren (`TEAMS_API_KEY`, `LARAVEL_WEBHOOK_URL`, `WELCOME_MESSAGE`, …)
+4. **Laravel Webhook:** `{PORTAL_URL}/api/kunden/ms-graph-laravel/teams-webhook`
+5. **Teams App Manifest** (`manifest.json` + Icons): `bots[].botId` und `webApplicationInfo.id` = Bot App ID
+   ```json
+   "bots": [{ "botId": "DEINE-BOT-APP-REGISTRATION-ID", ... }],
+   "webApplicationInfo": {
+     "id": "DEINE-BOT-APP-REGISTRATION-ID",
+     "resource": "https://RessourceUrl"
+   }
+   ```
+   **Wichtig:** Ohne `webApplicationInfo.id` schlägt die Installation mit `[Forbidden] Caller is not authorized` fehl.
+   Für die **App-Validierung** im Developer Portal `commandLists` mit Befehl `Hi` ergänzen:
+   ```json
+   "commandLists": [
+     {
+       "scopes": ["personal"],
+       "commands": [
+         { "title": "Hi", "description": "Begrüßung" }
+       ]
+     }
+   ]
+   ```
+   Der Webhook sendet automatisch eine Welcome-Nachricht (personal scope) und antwortet auf `Hi`.
+4. App im **Teams Admin Center** in den Organisations-App-Katalog hochladen (nach Manifest-Änderung erneut!)
+5. **API Permissions** (Application): `TeamsAppInstallation.ReadWriteSelfForUser.All` + Admin Consent
+   - Alternative bei anhaltendem „Caller is not authorized“: `TeamsAppInstallation.ReadWriteForUser.All`
+6. Env-Variablen setzen und `MSGRAPH_TEAMS_BOT_ENABLED=true`
+   - `MSGRAPH_TEAMS_APP_CATALOG_ID` = `id` aus Graph/Katalog **nach** Upload (kann sich nach Neuveröffentlichung ändern!)
 
 ### Azure Setup
 
