@@ -15,6 +15,7 @@ class TeamsBotService implements MsGraphTeamsBotServiceInterface
     public function __construct(
         private readonly TeamsBotInstallationService $installationService,
         private readonly TeamsBotMessagingService $messagingService,
+        private readonly TeamsBotChannelDirectoryService $channelDirectory,
         private readonly TeamsSdkRestClient $sdkRestClient,
     ) {}
 
@@ -32,9 +33,53 @@ class TeamsBotService implements MsGraphTeamsBotServiceInterface
         $this->installationService->installForUser($azureUserId, $upn, $displayName);
     }
 
+    public function installForTeam(string $teamId): void
+    {
+        $this->installationService->installForTeamSync($teamId);
+    }
+
+    public function installForChat(string $chatId): void
+    {
+        $this->installationService->installForChatSync($chatId);
+    }
+
     public function sendMessage(string $azureUserId, string $text): void
     {
         $this->messagingService->queueMessage($azureUserId, $text);
+    }
+
+    /**
+     * @return list<array{teamId: string, teamName: string}>
+     */
+    public function searchTenantTeams(string $search, int $limit = 15): array
+    {
+        return $this->channelDirectory->searchTeams($search, $limit);
+    }
+
+    /**
+     * @return list<array{channelId: string, channelName: string}>
+     */
+    public function listTeamChannels(string $teamId): array
+    {
+        return $this->channelDirectory->listChannels($teamId);
+    }
+
+    public function sendChannelMessage(string $teamId, string $channelId, string $text): void
+    {
+        $this->messagingService->queueChannelMessage($teamId, $channelId, $text);
+    }
+
+    /**
+     * @return list<array{chatId: string, label: string}>
+     */
+    public function listUserGroupChats(string $azureUserId): array
+    {
+        return $this->channelDirectory->listUserGroupChats($azureUserId);
+    }
+
+    public function sendChatMessage(string $chatId, string $text): void
+    {
+        $this->messagingService->queueChatMessage($chatId, $text);
     }
 
     public function getConversation(string $azureUserId): ?TeamsBotConversation

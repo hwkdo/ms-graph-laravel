@@ -6,6 +6,8 @@ namespace Hwkdo\MsGraphLaravel\Services;
 
 use Hwkdo\MsGraphLaravel\Enums\TeamsBotConversationStatus;
 use Hwkdo\MsGraphLaravel\Http\TeamsSdkRestClient;
+use Hwkdo\MsGraphLaravel\Jobs\SendTeamsBotChannelMessageJob;
+use Hwkdo\MsGraphLaravel\Jobs\SendTeamsBotChatMessageJob;
 use Hwkdo\MsGraphLaravel\Jobs\SendTeamsBotMessageJob;
 use Hwkdo\MsGraphLaravel\Models\TeamsBotConversation;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +24,52 @@ class TeamsBotMessagingService
     public function queueMessage(string $azureUserId, string $text): void
     {
         SendTeamsBotMessageJob::dispatch($azureUserId, $text);
+    }
+
+    public function queueChannelMessage(string $teamId, string $channelId, string $text): void
+    {
+        SendTeamsBotChannelMessageJob::dispatch($teamId, $channelId, $text);
+    }
+
+    public function sendChannelMessageSync(string $teamId, string $channelId, string $text): void
+    {
+        try {
+            $this->sdkClient->sendMessage([
+                'teamId' => $teamId,
+                'channelId' => $channelId,
+                'text' => $text,
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Teams Bot Kanal-Nachricht fehlgeschlagen', [
+                'team_id' => $teamId,
+                'channel_id' => $channelId,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw new RuntimeException($exception->getMessage(), 0, $exception);
+        }
+    }
+
+    public function queueChatMessage(string $chatId, string $text): void
+    {
+        SendTeamsBotChatMessageJob::dispatch($chatId, $text);
+    }
+
+    public function sendChatMessageSync(string $chatId, string $text): void
+    {
+        try {
+            $this->sdkClient->sendMessage([
+                'conversationId' => $chatId,
+                'text' => $text,
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Teams Bot Gruppenchat-Nachricht fehlgeschlagen', [
+                'chat_id' => $chatId,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw new RuntimeException($exception->getMessage(), 0, $exception);
+        }
     }
 
     public function sendMessageSync(string $azureUserId, string $text): void
