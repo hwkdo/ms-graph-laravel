@@ -82,6 +82,11 @@ class TeamsBotService implements MsGraphTeamsBotServiceInterface
         $this->messagingService->queueChatMessage($chatId, $text);
     }
 
+    public function replyToIncomingTeamsMessage(array $activity, array $conversationRef, string $text): void
+    {
+        $this->messagingService->replyToWebhookMessage($activity, $conversationRef, $text);
+    }
+
     public function getConversation(string $azureUserId): ?TeamsBotConversation
     {
         return $this->installationService->getInstallationStatus($azureUserId);

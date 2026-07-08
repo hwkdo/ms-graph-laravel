@@ -19,18 +19,12 @@ class TeamsMemberId
         return $memberId;
     }
 
+    /**
+     * @param  array<string, mixed>  $activity
+     */
     public static function normalizeMessageText(array $activity): string
     {
-        $text = $activity['text'] ?? '';
-
-        if (! is_string($text)) {
-            return '';
-        }
-
-        $text = preg_replace('/<at>.*?<\/at>\s*/i', '', $text) ?? $text;
-        $text = strip_tags($text);
-
-        return trim($text);
+        return TeamsActivityContentParser::parse($activity)['text'];
     }
 
     public static function isHiCommand(string $text): bool

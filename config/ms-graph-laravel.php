@@ -56,6 +56,10 @@ return [
             'Hallo! Schön, dass du da bist. Ich sende dir Benachrichtigungen aus dem HWKDO Intranet.',
         ),
         'auto_reply_message' => 'Dies ist ein Benachrichtigungs-Bot. Bitte bearbeiten Sie Anfragen im Intranet.',
+        'mention_help_message' => env(
+            'MSGRAPH_TEAMS_BOT_MENTION_HELP',
+            'Du kannst mir z. B. schreiben: „@Bot erstelle mir ein Ticket, dass …", um ein Ticket zu erstellen.',
+        ),
     ],
 
     /*
@@ -76,6 +80,7 @@ return [
         'webhook_secret' => env('TEAMS_WEBHOOK_SECRET'),
         'timeout' => env('TEAMS_SDK_TIMEOUT', 30),
         'log_webhook_requests' => env('TEAMS_WEBHOOK_LOG_REQUESTS', true),
+        'log_webhook_payload' => env('TEAMS_WEBHOOK_LOG_PAYLOAD', false),
     ],
 
     /*

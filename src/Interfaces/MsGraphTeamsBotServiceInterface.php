@@ -38,6 +38,12 @@ interface MsGraphTeamsBotServiceInterface
 
     public function sendChatMessage(string $chatId, string $text): void;
 
+    /**
+     * @param  array<string, mixed>  $activity
+     * @param  array<string, mixed>  $conversationRef
+     */
+    public function replyToIncomingTeamsMessage(array $activity, array $conversationRef, string $text): void;
+
     public function getConversation(string $azureUserId): ?TeamsBotConversation;
 
     /**

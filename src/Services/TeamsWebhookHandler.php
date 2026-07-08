@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Hwkdo\MsGraphLaravel\Services;
 
+use Hwkdo\MsGraphLaravel\Data\TeamsBotIncomingMessage;
 use Hwkdo\MsGraphLaravel\Enums\TeamsBotConversationStatus;
+use Hwkdo\MsGraphLaravel\Events\TeamsBotMessageReceived;
 use Hwkdo\MsGraphLaravel\Http\TeamsSdkRestClient;
 use Hwkdo\MsGraphLaravel\Models\TeamsBotConversation;
 use Hwkdo\MsGraphLaravel\Support\TeamsMemberId;
@@ -28,7 +30,7 @@ class TeamsWebhookHandler
         match ($event) {
             'install.add', 'conversationUpdate.channelMemberAdded' => $this->handleInstallAdd($activity, $conversationRef),
             'install.remove' => $this->handleInstallRemove($conversationRef),
-            'message', 'mention' => $this->handleMessage($activity, $conversationRef),
+            'message', 'mention' => $this->handleMessage($event, $activity, $conversationRef),
             default => Log::debug('Teams Webhook Event ignoriert', ['event' => $event]),
         };
     }
@@ -89,7 +91,7 @@ class TeamsWebhookHandler
      * @param  array<string, mixed>  $activity
      * @param  array<string, mixed>  $conversationRef
      */
-    private function handleMessage(array $activity, array $conversationRef): void
+    private function handleMessage(string $event, array $activity, array $conversationRef): void
     {
         $fromId = $activity['from']['id'] ?? null;
         $botAppId = config('ms-graph-laravel.teams_bot.app_id');
@@ -114,20 +116,102 @@ class TeamsWebhookHandler
             }
         }
 
-        $messageText = TeamsMemberId::normalizeMessageText($activity);
+        $message = TeamsBotIncomingMessage::fromWebhook($event, $activity, $conversationRef, $azureUserId);
+
+        // Das separate 'mention'-Event ist ein Duplikat des 'message'-Events (Kanal/Gruppenchat).
+        // Verarbeitung erfolgt am message-Event, wenn der Bot erwähnt wurde.
+        if ($event === 'mention') {
+            return;
+        }
+
+        // In Kanälen und Gruppenchats nur auf @mentions reagieren.
+        if (! $message->isDirectMessage() && ! $message->isMention) {
+            return;
+        }
 
         Log::info('Teams Bot Nachricht vom Benutzer empfangen', [
             'from_id' => $fromId,
-            'text' => $messageText,
+            'event' => $event,
+            'conversation_type' => $message->conversationType,
+            'text' => $message->text,
+            'quoted_text' => $message->quotedText,
+            'quoted_sender_name' => $message->quotedSenderName,
+            'quoted_sender_azure_id' => $message->quotedSenderAzureId,
+            'quoted_message_id' => $message->quotedMessageId,
         ]);
 
-        $reply = TeamsMemberId::isHiCommand($messageText)
-            ? config('ms-graph-laravel.teams_bot.hi_reply_message')
-            : config('ms-graph-laravel.teams_bot.auto_reply_message');
+        if (config('ms-graph-laravel.teams_sdk_rest.log_webhook_payload', false)
+            || $message->hasQuotedContent()
+            || $this->activityLooksLikeQuote($activity)) {
+            Log::info('Teams Bot Activity Payload (Debug)', [
+                'activity_id' => $message->messageId,
+                'text' => $activity['text'] ?? null,
+                'reply_to_id' => $activity['replyToId'] ?? null,
+                'attachment_types' => collect(is_array($activity['attachments'] ?? null) ? $activity['attachments'] : [])
+                    ->map(fn (mixed $attachment): ?string => is_array($attachment) ? ($attachment['contentType'] ?? null) : null)
+                    ->filter()
+                    ->values()
+                    ->all(),
+                'entity_types' => collect(is_array($activity['entities'] ?? null) ? $activity['entities'] : [])
+                    ->map(fn (mixed $entity): ?string => is_array($entity) ? ($entity['type'] ?? null) : null)
+                    ->filter()
+                    ->values()
+                    ->all(),
+                'attachments' => $activity['attachments'] ?? null,
+                'entities' => $activity['entities'] ?? null,
+            ]);
+        }
+
+        if ($this->dispatchToProcessors($message, $activity, $conversationRef)) {
+            return;
+        }
+
+        $reply = $this->resolveFallbackReply($message);
 
         if (is_string($reply) && $reply !== '') {
             $this->messagingService->replyToWebhookMessage($activity, $conversationRef, $reply);
         }
+    }
+
+    /**
+     * Verteilt die Nachricht an registrierte Listener (z. B. Ticket-Erstellung). Gibt einen
+     * Bestätigungstext zurück, wenn ein Listener die Nachricht übernommen hat.
+     *
+     * @param  array<string, mixed>  $activity
+     * @param  array<string, mixed>  $conversationRef
+     */
+    private function dispatchToProcessors(
+        TeamsBotIncomingMessage $message,
+        array $activity,
+        array $conversationRef,
+    ): bool {
+        $responses = TeamsBotMessageReceived::dispatch($message);
+
+        $acknowledgement = collect(is_array($responses) ? $responses : [])
+            ->first(fn ($response): bool => is_string($response) && trim($response) !== '');
+
+        if (! is_string($acknowledgement)) {
+            return false;
+        }
+
+        $this->messagingService->replyToWebhookMessage($activity, $conversationRef, $acknowledgement);
+
+        return true;
+    }
+
+    private function resolveFallbackReply(TeamsBotIncomingMessage $message): ?string
+    {
+        if (! $message->isDirectMessage()) {
+            $help = config('ms-graph-laravel.teams_bot.mention_help_message');
+
+            return is_string($help) ? $help : null;
+        }
+
+        $reply = TeamsMemberId::isHiCommand($message->text)
+            ? config('ms-graph-laravel.teams_bot.hi_reply_message')
+            : config('ms-graph-laravel.teams_bot.auto_reply_message');
+
+        return is_string($reply) ? $reply : null;
     }
 
     /**
@@ -246,5 +330,57 @@ class TeamsWebhookHandler
         $name = $from['name'] ?? null;
 
         return is_string($name) && $name !== '' ? $name : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $activity
+     */
+    private function activityLooksLikeQuote(array $activity): bool
+    {
+        $text = $activity['text'] ?? '';
+
+        if (is_string($text) && str_contains($text, '<blockquote')) {
+            return true;
+        }
+
+        $attachments = $activity['attachments'] ?? [];
+
+        if (! is_array($attachments)) {
+            return false;
+        }
+
+        foreach ($attachments as $attachment) {
+            if (! is_array($attachment)) {
+                continue;
+            }
+
+            $contentType = $attachment['contentType'] ?? null;
+
+            if ($contentType === 'messageReference') {
+                return true;
+            }
+
+            if ($contentType === 'text/html') {
+                $content = $attachment['content'] ?? '';
+
+                if (is_string($content) && str_contains($content, '<blockquote')) {
+                    return true;
+                }
+            }
+        }
+
+        $entities = $activity['entities'] ?? [];
+
+        if (! is_array($entities)) {
+            return false;
+        }
+
+        foreach ($entities as $entity) {
+            if (is_array($entity) && ($entity['type'] ?? null) === 'quotedReply') {
+                return true;
+            }
+        }
+
+        return filled($activity['replyToId'] ?? null);
     }
 }
