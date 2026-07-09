@@ -11,7 +11,7 @@ use Microsoft\Graph\Generated\Models\TeamworkActivityTopicSource;
 use Microsoft\Graph\Generated\Users\Item\Teamwork\SendActivityNotification\SendActivityNotificationPostRequestBody;
 use RuntimeException;
 
-class TeamsActivityFeedNotificationBuilder
+class TeamsActivityNotificationBuilder
 {
     public function build(
         string $previewText,
@@ -19,6 +19,7 @@ class TeamsActivityFeedNotificationBuilder
         ?string $topicTitle = null,
         ?string $webUrl = null,
         ?string $teamsAppId = null,
+        ?string $activityType = null,
     ): SendActivityNotificationPostRequestBody {
         $preview = trim($previewText);
 
@@ -26,14 +27,17 @@ class TeamsActivityFeedNotificationBuilder
             throw new RuntimeException('Vorschautext der Activity-Feed-Benachrichtigung darf nicht leer sein.');
         }
 
-        $activityType = (string) config('ms-graph-laravel.teams_activity_feed.activity_type', 'systemDefault');
-        $resolvedTeamsAppId = $teamsAppId ?? config('ms-graph-laravel.teams_bot.teams_app_id');
+        $resolvedActivityType = filled($activityType)
+            ? $activityType
+            : (string) config('intranet-app-teams-bot.activity_feed.activity_type', 'systemDefault');
+        $resolvedTeamsAppId = $teamsAppId
+            ?? config('intranet-app-teams-bot.bot.teams_app_id');
         $topicTitleValue = filled($topicTitle)
             ? $topicTitle
-            : (string) config('ms-graph-laravel.teams_activity_feed.topic_title', 'HWKDO Intranet');
+            : (string) config('intranet-app-teams-bot.activity_feed.topic_title', 'HWKDO Intranet');
         $configuredWebUrl = filled($webUrl)
             ? $webUrl
-            : config('ms-graph-laravel.teams_activity_feed.topic_web_url');
+            : config('intranet-app-teams-bot.activity_feed.topic_web_url');
 
         $topic = $this->buildTopic($topicTitleValue, $configuredWebUrl, $resolvedTeamsAppId);
 
@@ -41,7 +45,7 @@ class TeamsActivityFeedNotificationBuilder
         $previewBody->setContent(mb_substr($preview, 0, 150));
 
         $body = new SendActivityNotificationPostRequestBody;
-        $body->setActivityType($activityType);
+        $body->setActivityType($resolvedActivityType);
         $body->setTopic($topic);
         $body->setPreviewText($previewBody);
 
@@ -49,7 +53,7 @@ class TeamsActivityFeedNotificationBuilder
             $body->setTeamsAppId((string) $resolvedTeamsAppId);
         }
 
-        if ($activityType === 'systemDefault') {
+        if ($resolvedActivityType === 'systemDefault') {
             $actorValue = filled($actorText) ? $actorText : $preview;
 
             $templateParameter = new KeyValuePair;

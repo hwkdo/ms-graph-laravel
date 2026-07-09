@@ -5,43 +5,22 @@ declare(strict_types=1);
 namespace Hwkdo\MsGraphLaravel\Services;
 
 use Hwkdo\MsGraphLaravel\Client;
-use Hwkdo\MsGraphLaravel\Jobs\SendTeamsActivityFeedNotificationJob;
 use Hwkdo\MsGraphLaravel\Support\GraphExceptionMessage;
 use Illuminate\Support\Facades\Log;
 use Microsoft\Graph\GraphServiceClient;
 use RuntimeException;
 use Throwable;
 
-class TeamsActivityFeedNotificationService
+class TeamsActivityNotificationService
 {
     protected static GraphServiceClient $graph;
 
     public function __construct(
-        private readonly TeamsActivityFeedNotificationBuilder $notificationBuilder,
+        private readonly TeamsActivityNotificationBuilder $notificationBuilder,
+        string $graphRegistration = 'teams_bot',
     ) {
-        $registration = (string) config(
-            'ms-graph-laravel.teams_activity_feed.graph_registration',
-            'teams_bot',
-        );
-
         $client = new Client;
-        self::$graph = $client($registration);
-    }
-
-    public function queueNotification(
-        string $azureUserId,
-        string $previewText,
-        ?string $actorText = null,
-        ?string $topicTitle = null,
-        ?string $webUrl = null,
-    ): void {
-        SendTeamsActivityFeedNotificationJob::dispatch(
-            $azureUserId,
-            $previewText,
-            $actorText,
-            $topicTitle,
-            $webUrl,
-        );
+        self::$graph = $client($graphRegistration);
     }
 
     public function sendNotificationSync(
@@ -50,16 +29,16 @@ class TeamsActivityFeedNotificationService
         ?string $actorText = null,
         ?string $topicTitle = null,
         ?string $webUrl = null,
+        ?string $teamsAppId = null,
+        ?string $activityType = null,
     ): void {
-        if (! config('ms-graph-laravel.teams_activity_feed.enabled')) {
-            throw new RuntimeException('Teams Activity Feed ist deaktiviert.');
-        }
-
         $body = $this->notificationBuilder->build(
             previewText: $previewText,
             actorText: $actorText,
             topicTitle: $topicTitle,
             webUrl: $webUrl,
+            teamsAppId: $teamsAppId,
+            activityType: $activityType,
         );
 
         try {

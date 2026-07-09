@@ -15,13 +15,13 @@ use Microsoft\Graph\GraphServiceClient;
 use RuntimeException;
 use Throwable;
 
-class TeamsBotChannelDirectoryService
+class TeamsDirectoryService
 {
     private const MAX_TEAMS = 15;
 
     protected GraphServiceClient $graph;
 
-    public function __construct(?GraphServiceClient $graph = null)
+    public function __construct(?GraphServiceClient $graph = null, string $graphRegistration = 'teams_bot')
     {
         if ($graph instanceof GraphServiceClient) {
             $this->graph = $graph;
@@ -29,10 +29,8 @@ class TeamsBotChannelDirectoryService
             return;
         }
 
-        $registration = (string) config('ms-graph-laravel.teams_bot.graph_registration', 'teams_bot');
-
         $client = new Client;
-        $this->graph = $client($registration);
+        $this->graph = $client($graphRegistration);
     }
 
     /**

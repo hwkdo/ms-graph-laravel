@@ -44,14 +44,8 @@ class TestCase extends Orchestra
             'prefix' => '',
         ]);
 
-        $app['config']->set('ms-graph-laravel.teams_bot.enabled', true);
-        $app['config']->set('ms-graph-laravel.teams_bot.app_id', 'test-bot-app-id');
-        $app['config']->set('ms-graph-laravel.teams_bot.app_secret', 'test-bot-secret');
-        $app['config']->set('ms-graph-laravel.teams_bot.teams_app_id', 'test-teams-app-id');
-        $app['config']->set('ms-graph-laravel.teams_sdk_rest.base_url', 'http://teams-sdk-rest.test');
-        $app['config']->set('ms-graph-laravel.teams_sdk_rest.api_key', 'test-api-key');
-        $app['config']->set('ms-graph-laravel.teams_activity_feed.enabled', true);
-        $app['config']->set('ms-graph-laravel.teams_activity_feed.activity_type', 'systemDefault');
-        $app['config']->set('ms-graph-laravel.teams_activity_feed.topic_title', 'Test Intranet');
+        $app['config']->set('ms-graph-laravel.azure_app_registrations.teams_bot.client_id', 'test-bot-app-id');
+        $app['config']->set('ms-graph-laravel.azure_app_registrations.teams_bot.client_secret', 'test-bot-secret');
+        $app['config']->set('ms-graph-laravel.tenant_id', 'test-tenant-id');
     }
 }
