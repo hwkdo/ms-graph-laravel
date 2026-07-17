@@ -7,12 +7,14 @@ use Hwkdo\MsGraphLaravel\Client;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface;
 use Hwkdo\MsGraphLaravel\Models\Token;
 use Illuminate\Support\Facades\Log;
+use Microsoft\Graph\Generated\Models\ODataErrors\ODataError;
 use Microsoft\Graph\Generated\Models\User;
 use Microsoft\Graph\Generated\Users\Item\UserItemRequestBuilderGetQueryParameters;
 use Microsoft\Graph\Generated\Users\Item\UserItemRequestBuilderGetRequestConfiguration;
 use Microsoft\Graph\Generated\Users\UsersRequestBuilderGetQueryParameters;
 use Microsoft\Graph\Generated\Users\UsersRequestBuilderGetRequestConfiguration;
 use Microsoft\Graph\GraphServiceClient;
+use Microsoft\Kiota\Abstractions\ApiException;
 
 class UserService implements MsGraphUserServiceInterface
 {
@@ -278,11 +280,22 @@ class UserService implements MsGraphUserServiceInterface
     public function removeUserFromGroup(string $upn, string $groupId): bool
     {
         try {
-            // Hole die User-ID
             $user = self::getUserByUpn($upn);
             $userId = $user->getId();
+        } catch (Exception $e) {
+            Log::warning('MsGraph UserService: removeUserFromGroup failed (user lookup)', [
+                'upn' => $upn,
+                'group_id' => $groupId,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'status_code' => $e instanceof ApiException ? $e->getResponseStatusCode() : null,
+                'error_code' => $e instanceof ODataError ? $e->getError()?->getCode() : null,
+            ]);
 
-            // Entferne den User aus der Gruppe
+            return false;
+        }
+
+        try {
             self::$graph->groups()
                 ->byGroupId($groupId)
                 ->members()
@@ -293,14 +306,40 @@ class UserService implements MsGraphUserServiceInterface
 
             return true;
         } catch (Exception $e) {
+            if ($this->isAlreadyNotAGroupMember($e)) {
+                Log::info('MsGraph UserService: removeUserFromGroup — User bereits nicht in Gruppe', [
+                    'upn' => $upn,
+                    'group_id' => $groupId,
+                ]);
+
+                return true;
+            }
+
             Log::warning('MsGraph UserService: removeUserFromGroup failed', [
                 'upn' => $upn,
                 'group_id' => $groupId,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
+                'status_code' => $e instanceof ApiException ? $e->getResponseStatusCode() : null,
+                'error_code' => $e instanceof ODataError ? $e->getError()?->getCode() : null,
             ]);
 
             return false;
         }
+    }
+
+    private function isAlreadyNotAGroupMember(Exception $e): bool
+    {
+        if ($e instanceof ApiException && $e->getResponseStatusCode() === 404) {
+            return true;
+        }
+
+        if (! $e instanceof ODataError) {
+            return false;
+        }
+
+        $code = $e->getError()?->getCode();
+
+        return in_array($code, ['Request_ResourceNotFound', 'ResourceNotFound'], true);
     }
 }
