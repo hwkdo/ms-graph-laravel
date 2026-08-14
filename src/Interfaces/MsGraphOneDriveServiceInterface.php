@@ -27,4 +27,8 @@ interface MsGraphOneDriveServiceInterface
     public function shareReadWrite($upn, $item_id, $password = null, $expirationDateTime = null);
 
     public function newDir($upn, $dir_name, $subdir = null);
+
+    public function makeFolder($upn, $folder);
+
+    public function getDriveItemPermissions($upn, $item_id, $scope = null);
 }

@@ -1,12 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Hwkdo\MsGraphLaravel\Services;
 
+use DateTime;
+use DateTimeInterface;
+use GuzzleHttp\Psr7\Utils;
 use Hwkdo\MsGraphLaravel\Client;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOneDriveServiceInterface;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Microsoft\Graph\Generated\Drives\Item\Items\Item\Checkin\CheckinPostRequestBody;
+use Microsoft\Graph\Generated\Drives\Item\Items\Item\CreateLink\CreateLinkPostRequestBody;
 use Microsoft\Graph\Generated\Models\DriveItem;
+use Microsoft\Graph\Generated\Models\Folder;
+use Microsoft\Graph\Generated\Models\Permission;
 use Microsoft\Graph\GraphServiceClient;
 
 class OneDriveService implements MsGraphOneDriveServiceInterface
@@ -21,13 +30,12 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
 
     public function getUserDriveDelta($upn, $endpoint = null, $token = null)
     {
-        $myEndpoint = $endpoint ? $endpoint : '/users/'.$upn.'/drive/root/delta';
+        $driveId = $this->driveIdForUser($upn);
 
-        // Note: Delta queries may need special handling in v2
-        return self::$graph->users()
-            ->byUserId($upn)
-            ->drive()
-            ->root()
+        return self::$graph->drives()
+            ->byDriveId($driveId)
+            ->items()
+            ->byDriveItemId('root')
             ->delta()
             ->get()
             ->wait();
@@ -37,11 +45,12 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     {
         $item = str($path)->afterLast('/')->value;
         $dir = str($path)->beforeLast('/')->value;
-        $dirs = self::getUserDriveContent($upn, $dir);
+        $dirs = $this->getUserDriveContent($upn, $dir !== '' ? $dir : null);
         $myItem = null;
-        foreach ($dirs as $dir) {
-            if ($dir->getName() == $item) {
-                $myItem = $dir->getId();
+
+        foreach ($dirs as $child) {
+            if ($child->getName() == $item) {
+                $myItem = $child->getId();
             }
         }
 
@@ -62,43 +71,30 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
 
     public function getUserDriveQuota($upn)
     {
-        return self::getUserDrive($upn)->getQuota();
+        return $this->getUserDrive($upn)->getQuota();
     }
 
     /*
-    ** https://learn.microsoft.com/de-de/graph/api/drive-get?view=graph-rest-beta&tabs=http#get-a-users-onedrive
+    ** https://learn.microsoft.com/de-de/graph/api/driveitem-list-children?view=graph-rest-1.0
     */
     public function getUserDriveContent($upn, $subdir = null)
     {
-        if ($subdir) {
-            $endpoint = '/users/'.$upn.'/drive/root:/'.$subdir.':/children';
+        $driveId = $this->driveIdForUser($upn);
+        $itemId = $this->itemPathId($subdir);
 
-            // Note: This may need special handling for path-based access in v2
-            $response = self::$graph->users()
-                ->byUserId($upn)
-                ->drive()
-                ->root()
-                ->itemWithPath($subdir)
-                ->children()
-                ->get()
-                ->wait();
+        $response = self::$graph->drives()
+            ->byDriveId($driveId)
+            ->items()
+            ->byDriveItemId($itemId)
+            ->children()
+            ->get()
+            ->wait();
 
-            return $response->getValue();
-        } else {
-            $response = self::$graph->users()
-                ->byUserId($upn)
-                ->drive()
-                ->root()
-                ->children()
-                ->get()
-                ->wait();
-
-            return $response->getValue();
-        }
+        return $response?->getValue() ?? [];
     }
 
     /*
-    ** https://learn.microsoft.com/de-de/graph/api/drive-get?view=graph-rest-beta&tabs=http#get-a-users-onedrive
+    ** https://learn.microsoft.com/de-de/graph/api/drive-list?view=graph-rest-1.0
     */
     public function getUserDrives($upn)
     {
@@ -108,11 +104,11 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
             ->get()
             ->wait();
 
-        return $response->getValue();
+        return $response?->getValue() ?? [];
     }
 
     /*
-    ** https://learn.microsoft.com/de-de/graph/api/driveitem-delete?view=graph-rest-beta&tabs=http
+    ** https://learn.microsoft.com/de-de/graph/api/driveitem-delete?view=graph-rest-1.0
     */
     public function deleteItemById($drive_id, $item_id)
     {
@@ -126,180 +122,177 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
 
     public function deleteItemByPath($upn, $path)
     {
-        $itemId = self::getItemIdByPath($upn, $path);
-        $driveId = self::getUserDrive(config('intranet.ms_graph.upn_file_service_account'))->getId();
+        $itemId = $this->getItemIdByPath($upn, $path);
+        $driveId = $this->getUserDrive(config('intranet.ms_graph.upn_file_service_account'))->getId();
 
-        return self::deleteItemById($driveId, $itemId);
+        return $this->deleteItemById($driveId, $itemId);
     }
 
     /*
-    ** https://learn.microsoft.com/de-de/graph/api/driveitem-put-content?view=graph-rest-beta
-     * UPLOAD biIS 250 MB
-     * fuer groeßere uploads siehe hier https://learn.microsoft.com/de-de/graph/api/driveitem-createuploadsession?view=graph-rest-beta
-     *
+    ** https://learn.microsoft.com/de-de/graph/api/driveitem-put-content?view=graph-rest-1.0
+     * Upload bis ~250 MB
     */
     public function uploadItemToUserDrive($upn, $filename, $path_to_file, $subdir = null)
     {
         $filename = Str::slug(Str::ascii($filename)).'.'.Str::afterLast($filename, '.');
+        $driveId = $this->driveIdForUser($upn);
 
-        if ($subdir) {
-            return self::$graph->users()
-                ->byUserId($upn)
-                ->drive()
-                ->root()
-                ->itemWithPath($subdir)
-                ->itemWithPath($filename)
-                ->content()
-                ->put($path_to_file)
-                ->wait();
-        } else {
-            return self::$graph->users()
-                ->byUserId($upn)
-                ->drive()
-                ->root()
-                ->itemWithPath($filename)
-                ->content()
-                ->put($path_to_file)
-                ->wait();
-        }
-    }
+        $relativePath = $subdir
+            ? trim((string) $subdir, '/').'/'.$filename
+            : $filename;
 
-    /*
-     * https://learn.microsoft.com/en-us/graph/api/permission-update?view=graph-rest-beta&tabs=http
-     */
-    public function updateLink($upn, $item_id, $perm_id, $data)
-    {
-        return self::$graph->users()
-            ->byUserId($upn)
-            ->drive()
+        $stream = Utils::streamFor(fopen($path_to_file, 'r'));
+
+        return self::$graph->drives()
+            ->byDriveId($driveId)
             ->items()
-            ->byDriveItemId($item_id)
-            ->permissions()
-            ->byPermissionId($perm_id)
-            ->patch($data)
+            ->byDriveItemId($this->itemPathId($relativePath))
+            ->content()
+            ->put($stream)
             ->wait();
     }
 
     /*
-    ** https://learn.microsoft.com/de-de/graph/api/driveitem-createlink?view=graph-rest-beta&tabs=http#link-types
-     * types:
-     *  - view (read only)
-     *  - blocksDownload (read-only und download sperre)
-     *  - edit
-     *  - createOnly (nur upload)
-     * scopes:
-     *  - anonymous
-     *  - organization
-     *  - users
+     * https://learn.microsoft.com/en-us/graph/api/permission-update?view=graph-rest-1.0
+     */
+    public function updateLink($upn, $item_id, $perm_id, $data)
+    {
+        $driveId = $this->driveIdForUser($upn);
+        $permission = new Permission;
+
+        if (is_array($data)) {
+            $permission->setAdditionalData($data);
+        } elseif ($data instanceof Permission) {
+            $permission = $data;
+        }
+
+        return self::$graph->drives()
+            ->byDriveId($driveId)
+            ->items()
+            ->byDriveItemId($item_id)
+            ->permissions()
+            ->byPermissionId($perm_id)
+            ->patch($permission)
+            ->wait();
+    }
+
+    /*
+    ** https://learn.microsoft.com/de-de/graph/api/driveitem-createlink?view=graph-rest-1.0
     */
     public function createLink($upn, $item_id, $type, $scope, $password = null, $expirationDateTime = null)
     {
-        $data = [
-            'type' => $type,
-            'scope' => $scope,
-            'retainInheritedPermissions' => false,
-        ];
+        $driveId = $this->driveIdForUser($upn);
+
+        $body = new CreateLinkPostRequestBody;
+        $body->setType($type);
+        $body->setScope($scope);
+        $body->setRetainInheritedPermissions(false);
+
         if ($password) {
-            $data['password'] = $password;
-        }
-        if ($expirationDateTime) {
-            $data['expirationDateTime'] = \Carbon\Carbon::parse($expirationDateTime)->toIso8601ZuluString();
+            $body->setPassword($password);
         }
 
-        return self::$graph->users()
-            ->byUserId($upn)
-            ->drive()
+        if ($expirationDateTime) {
+            $parsed = $expirationDateTime instanceof DateTimeInterface
+                ? DateTime::createFromInterface($expirationDateTime)
+                : new DateTime((string) $expirationDateTime);
+            $body->setExpirationDateTime($parsed);
+        }
+
+        return self::$graph->drives()
+            ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
             ->createLink()
-            ->post($data)
+            ->post($body)
             ->wait();
     }
 
     public function shareReadOnly($upn, $item_id, $password = null, $expirationDateTime = null)
     {
-        $result = self::createLink($upn, $item_id, 'view', 'anonymous', $password, $expirationDateTime);
+        $result = $this->createLink($upn, $item_id, 'view', 'anonymous', $password, $expirationDateTime);
 
         return $result->getLink()->getWebUrl();
     }
 
     public function shareReadWrite($upn, $item_id, $password = null, $expirationDateTime = null)
     {
-        $result = self::createLink($upn, $item_id, 'edit', 'anonymous', $password, $expirationDateTime);
+        $result = $this->createLink($upn, $item_id, 'edit', 'anonymous', $password, $expirationDateTime);
 
         return $result->getLink()->getWebUrl();
     }
 
     /*
-    ** https://learn.microsoft.com/de-de/graph/api/driveitem-post-children?view=graph-rest-beta&tabs=http
+    ** https://learn.microsoft.com/de-de/graph/api/driveitem-post-children?view=graph-rest-1.0
     */
     public function newDir($upn, $dir_name, $subdir = null)
     {
-        $data = [
-            'name' => $dir_name,
-            'folder' => [],
-            '@microsoft.graph.conflictBehavior' => 'rename',
-        ];
+        $driveId = $this->driveIdForUser($upn);
+        $parentId = $this->itemPathId($subdir);
 
-        if ($subdir) {
-            return self::$graph->users()
-                ->byUserId($upn)
-                ->drive()
-                ->root()
-                ->itemWithPath($subdir)
-                ->children()
-                ->post($data)
-                ->wait();
-        } else {
-            return self::$graph->users()
-                ->byUserId($upn)
-                ->drive()
-                ->root()
-                ->children()
-                ->post($data)
-                ->wait();
-        }
+        $driveItem = new DriveItem;
+        $driveItem->setName($dir_name);
+        $driveItem->setFolder(new Folder);
+        $driveItem->setAdditionalData([
+            '@microsoft.graph.conflictBehavior' => 'rename',
+        ]);
+
+        return self::$graph->drives()
+            ->byDriveId($driveId)
+            ->items()
+            ->byDriveItemId($parentId)
+            ->children()
+            ->post($driveItem)
+            ->wait();
     }
 
     public function makeFolder($upn, $folder)
     {
         $subdirs = explode('/', $folder);
         Log::debug('------- makeFolder2', $subdirs);
-        $rootItems = self::getUserDriveContent($upn);
+        $rootItems = $this->getUserDriveContent($upn);
         $rootItem = false;
+
         foreach ($rootItems as $item) {
             if ($item->getName() == $subdirs[0] && $item->getFolder()) {
                 $rootItem = $item;
                 Log::debug('rootItem found', [$rootItem]);
             }
         }
+
         if (! $rootItem) {
-            $rootItem = self::newDir($upn, $subdirs[0]);
+            $rootItem = $this->newDir($upn, $subdirs[0]);
             Log::debug('rootItem created', [$rootItem]);
         }
 
         if (count($subdirs) == 1) {
             return $rootItem;
-        } elseif (count($subdirs) > 1) {
+        }
+
+        if (count($subdirs) > 1) {
             $dir = $subdirs[0];
             Log::debug('pre-loop setze dir auf '.$dir);
+
             for ($i = 1; $i < count($subdirs); $i++) {
                 Log::debug($i.' < '.count($subdirs));
                 Log::debug('not last round');
 
                 $subItem = false;
-                $subItems = self::getUserDriveContent($upn, $dir);
-                Log::info('Suche SubItem  '.$subdirs[$i].' in dir '.$dir, $subItems);
+                $subItems = $this->getUserDriveContent($upn, $dir);
+                Log::info('Suche SubItem  '.$subdirs[$i].' in dir '.$dir, is_array($subItems) ? $subItems : [$subItems]);
+
                 foreach ($subItems as $item) {
                     if ($item->getName() == $subdirs[$i] && $item->getFolder()) {
                         $subItem = $item;
                         Log::debug('subItem found', [$subItem]);
                     }
                 }
+
                 if (! $subItem) {
-                    $subItem = self::newDir($upn, $subdirs[$i], $dir);
+                    $subItem = $this->newDir($upn, $subdirs[$i], $dir);
                     Log::debug('subItem created in '.$dir, [$subItem]);
                 }
+
                 Log::info('SubItem Name '.$subItem->getName(), [$subItem]);
                 $dir .= '/'.$subdirs[$i];
                 Log::info('in-loop setze dir auf '.$dir);
@@ -310,28 +303,30 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     }
 
     /*
-    ** https://learn.microsoft.com/de-de/graph/api/driveitem-checkin?view=graph-rest-1.0&tabs=http
+    ** https://learn.microsoft.com/de-de/graph/api/driveitem-checkin?view=graph-rest-1.0
     */
     public function checkIn($upn, $item_id)
     {
-        return self::$graph->users()
-            ->byUserId($upn)
-            ->drive()
+        $driveId = $this->driveIdForUser($upn);
+
+        return self::$graph->drives()
+            ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
             ->checkin()
-            ->post()
+            ->post(new CheckinPostRequestBody)
             ->wait();
     }
 
     /*
-    ** https://learn.microsoft.com/de-de/graph/api/driveitem-checkout?view=graph-rest-1.0&tabs=http
+    ** https://learn.microsoft.com/de-de/graph/api/driveitem-checkout?view=graph-rest-1.0
     */
     public function checkOut($upn, $item_id)
     {
-        return self::$graph->users()
-            ->byUserId($upn)
-            ->drive()
+        $driveId = $this->driveIdForUser($upn);
+
+        return self::$graph->drives()
+            ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
             ->checkout()
@@ -341,16 +336,17 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
 
     public function getDriveItemPermissions($upn, $item_id, $scope = null)
     {
-        $response = self::$graph->users()
-            ->byUserId($upn)
-            ->drive()
+        $driveId = $this->driveIdForUser($upn);
+
+        $response = self::$graph->drives()
+            ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
             ->permissions()
             ->get()
             ->wait();
 
-        $data = $response->getValue();
+        $data = $response?->getValue() ?? [];
 
         if (! $scope) {
             return $data;
@@ -361,4 +357,30 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
         });
     }
 
+    protected function driveIdForUser(string $upn): string
+    {
+        $drive = $this->getUserDrive($upn);
+        $driveId = $drive?->getId();
+
+        if (! is_string($driveId) || $driveId === '') {
+            throw new \RuntimeException('OneDrive-ID für Benutzer '.$upn.' konnte nicht ermittelt werden.');
+        }
+
+        return $driveId;
+    }
+
+    /**
+     * Path-basierte DriveItem-ID für Graph SDK v2 (kein itemWithPath).
+     * root bzw. root:/relativer/pfad:
+     */
+    protected function itemPathId(?string $subdir = null): string
+    {
+        $subdir = is_string($subdir) ? trim($subdir, '/') : '';
+
+        if ($subdir === '') {
+            return 'root';
+        }
+
+        return 'root:/'.$subdir.':';
+    }
 }
