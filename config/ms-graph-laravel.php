@@ -65,4 +65,22 @@ return [
     ],
 
     'cache_seconds' => env('MSGRAPH_CACHE_SECONDS', 300),
+
+    /*
+    | Delegated Graph (User-Token aus Socialite / MICROSOFT_CLIENT_ID).
+    | Entra an der Login-App: Delegated Files.ReadWrite + offline_access + Admin-Consent.
+    */
+    'delegated' => [
+        'required_onedrive_scopes' => [
+            'Files.ReadWrite',
+            'Files.ReadWrite.All',
+        ],
+        'token_attributes' => [
+            'access_token' => 'socialite_token',
+            'refresh_token' => 'socialite_refresh_token',
+            'expires_at' => 'socialite_token_expires_at',
+            'scopes' => 'socialite_scopes',
+        ],
+        'refresh_leeway_seconds' => 120,
+    ],
 ];

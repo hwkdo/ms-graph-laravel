@@ -97,6 +97,19 @@ TEAMS_SDK_TIMEOUT=30
 TEAMS_WEBHOOK_LOG_REQUESTS=true
 ```
 
+### Delegated Permissions (User-Token)
+
+App-only (`MSGRAPH_APP_ID` / Client Credentials) bleibt der Default für Admin- und Hintergrundjobs.
+
+Für Calls im Namen des eingeloggten Users (z. B. Cloudshare) nutzt das Package den Socialite-Token der **Login-App** (`MICROSOFT_CLIENT_ID`):
+
+1. Entra an der Login-App (nicht an `MSGRAPH_APP_ID`): Delegated `User.Read`, `Files.ReadWrite`, `offline_access`
+2. Admin-Consent für den Tenant
+3. Socialite-Login muss Access Token, Refresh Token, Ablauf und Scopes am User speichern
+4. `MsGraphDelegatedOneDriveFactoryInterface::forUser($user)` liefert einen OneDrive-Client mit Bearer-User-Token
+
+Nach Scope-Änderungen müssen User einmal neu per Microsoft einloggen. Falls `createLink` im Tenant scheitert, zusätzlich Delegated `Files.ReadWrite.All` gewähren.
+
 ### Teams Bot Einrichtung
 
 Der Teams-Bot nutzt den Docker-Service `external/teams-sdk-rest` (Microsoft Teams SDK v2).

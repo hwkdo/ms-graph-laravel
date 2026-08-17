@@ -5,9 +5,12 @@ namespace Hwkdo\MsGraphLaravel;
 use Hwkdo\MsGraphLaravel\Commands\checkSubscriptions;
 use Hwkdo\MsGraphLaravel\Commands\refreshAktivUsersWithOooCache;
 use Hwkdo\MsGraphLaravel\Commands\SyncOutOfOfficeCommand;
+use Hwkdo\MsGraphLaravel\Interfaces\MicrosoftDelegatedTokenStore;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphAppServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphAuthenticationServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphDateTimeServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphDelegatedGraphClientFactoryInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphDelegatedOneDriveFactoryInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphGroupServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphIntuneServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphLicenseServiceInterface;
@@ -20,6 +23,9 @@ use Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface;
 use Hwkdo\MsGraphLaravel\Services\AppService;
 use Hwkdo\MsGraphLaravel\Services\AuthenticationService;
 use Hwkdo\MsGraphLaravel\Services\DateTimeService;
+use Hwkdo\MsGraphLaravel\Services\DelegatedAccessTokenService;
+use Hwkdo\MsGraphLaravel\Services\DelegatedGraphClientFactory;
+use Hwkdo\MsGraphLaravel\Services\DelegatedOneDriveFactory;
 use Hwkdo\MsGraphLaravel\Services\GroupService;
 use Hwkdo\MsGraphLaravel\Services\IntuneService;
 use Hwkdo\MsGraphLaravel\Services\LicenseService;
@@ -29,6 +35,7 @@ use Hwkdo\MsGraphLaravel\Services\OneDriveService;
 use Hwkdo\MsGraphLaravel\Services\OutOfOfficeTemplateService;
 use Hwkdo\MsGraphLaravel\Services\ShareService;
 use Hwkdo\MsGraphLaravel\Services\UserService;
+use Hwkdo\MsGraphLaravel\Stores\EloquentMicrosoftDelegatedTokenStore;
 use Illuminate\Console\Scheduling\Schedule;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -96,7 +103,24 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
 
         $this->app->bind(
             MsGraphOneDriveServiceInterface::class,
-            OneDriveService::class
+            fn (): OneDriveService => new OneDriveService,
+        );
+
+        $this->app->bind(
+            MicrosoftDelegatedTokenStore::class,
+            EloquentMicrosoftDelegatedTokenStore::class
+        );
+
+        $this->app->bind(DelegatedAccessTokenService::class);
+
+        $this->app->bind(
+            MsGraphDelegatedGraphClientFactoryInterface::class,
+            DelegatedGraphClientFactory::class
+        );
+
+        $this->app->bind(
+            MsGraphDelegatedOneDriveFactoryInterface::class,
+            DelegatedOneDriveFactory::class
         );
 
         $this->app->bind(

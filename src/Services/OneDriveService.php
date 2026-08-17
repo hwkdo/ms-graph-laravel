@@ -20,19 +20,18 @@ use Microsoft\Graph\GraphServiceClient;
 
 class OneDriveService implements MsGraphOneDriveServiceInterface
 {
-    protected static GraphServiceClient $graph;
+    protected GraphServiceClient $graph;
 
-    public function __construct()
+    public function __construct(?GraphServiceClient $graph = null)
     {
-        $g = new Client;
-        self::$graph = $g('onedrive');
+        $this->graph = $graph ?? (new Client)('onedrive');
     }
 
     public function getUserDriveDelta($upn, $endpoint = null, $token = null)
     {
         $driveId = $this->driveIdForUser($upn);
 
-        return self::$graph->drives()
+        return $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId('root')
@@ -62,7 +61,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
      */
     public function getUserDrive($upn)
     {
-        return self::$graph->users()
+        return $this->graph->users()
             ->byUserId($upn)
             ->drive()
             ->get()
@@ -82,7 +81,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
         $driveId = $this->driveIdForUser($upn);
         $itemId = $this->itemPathId($subdir);
 
-        $response = self::$graph->drives()
+        $response = $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($itemId)
@@ -98,7 +97,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     */
     public function getUserDrives($upn)
     {
-        $response = self::$graph->users()
+        $response = $this->graph->users()
             ->byUserId($upn)
             ->drives()
             ->get()
@@ -112,7 +111,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     */
     public function deleteItemById($drive_id, $item_id)
     {
-        return self::$graph->drives()
+        return $this->graph->drives()
             ->byDriveId($drive_id)
             ->items()
             ->byDriveItemId($item_id)
@@ -143,7 +142,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
 
         $stream = Utils::streamFor(fopen($path_to_file, 'r'));
 
-        return self::$graph->drives()
+        return $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($this->itemPathId($relativePath))
@@ -166,7 +165,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
             $permission = $data;
         }
 
-        return self::$graph->drives()
+        return $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
@@ -199,7 +198,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
             $body->setExpirationDateTime($parsed);
         }
 
-        return self::$graph->drives()
+        return $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
@@ -237,7 +236,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
             '@microsoft.graph.conflictBehavior' => 'rename',
         ]);
 
-        return self::$graph->drives()
+        return $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($parentId)
@@ -309,7 +308,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     {
         $driveId = $this->driveIdForUser($upn);
 
-        return self::$graph->drives()
+        return $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
@@ -325,7 +324,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     {
         $driveId = $this->driveIdForUser($upn);
 
-        return self::$graph->drives()
+        return $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
@@ -338,7 +337,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     {
         $driveId = $this->driveIdForUser($upn);
 
-        $response = self::$graph->drives()
+        $response = $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($item_id)
