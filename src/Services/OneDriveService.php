@@ -9,8 +9,8 @@ use DateTimeInterface;
 use GuzzleHttp\Psr7\Utils;
 use Hwkdo\MsGraphLaravel\Client;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOneDriveServiceInterface;
+use Hwkdo\MsGraphLaravel\Support\OnedriveFilename;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Microsoft\Graph\Generated\Drives\Item\Items\Item\Checkin\CheckinPostRequestBody;
 use Microsoft\Graph\Generated\Drives\Item\Items\Item\CreateLink\CreateLinkPostRequestBody;
 use Microsoft\Graph\Generated\Models\DriveItem;
@@ -133,7 +133,7 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     */
     public function uploadItemToUserDrive($upn, $filename, $path_to_file, $subdir = null)
     {
-        $filename = Str::slug(Str::ascii($filename)).'.'.Str::afterLast($filename, '.');
+        $filename = OnedriveFilename::sanitize($filename);
         $driveId = $this->driveIdForUser($upn);
 
         $relativePath = $subdir
