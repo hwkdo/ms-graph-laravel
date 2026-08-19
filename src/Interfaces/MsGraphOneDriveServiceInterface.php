@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Hwkdo\MsGraphLaravel\Interfaces;
 
 interface MsGraphOneDriveServiceInterface
@@ -8,7 +10,16 @@ interface MsGraphOneDriveServiceInterface
 
     public function getUserDriveQuota($upn);
 
-    public function getUserDriveContent($upn, $subdir = null);
+    /**
+     * @param  array{expand?: list<string>}  $options
+     */
+    public function getUserDriveContent($upn, $subdir = null, array $options = []);
+
+    /**
+     * @param  list<string>  $subdirs
+     * @return array<string, list<object>>
+     */
+    public function batchGetUserDriveContents(string $upn, array $subdirs): array;
 
     public function getUserDrives($upn);
 

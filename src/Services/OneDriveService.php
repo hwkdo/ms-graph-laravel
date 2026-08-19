@@ -11,16 +11,28 @@ use Hwkdo\MsGraphLaravel\Client;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOneDriveServiceInterface;
 use Hwkdo\MsGraphLaravel\Support\OnedriveFilename;
 use Illuminate\Support\Facades\Log;
+use Microsoft\Graph\BatchRequestBuilder;
+use Microsoft\Graph\Core\Requests\BatchRequestContent;
+use Microsoft\Graph\Core\Requests\BatchRequestItem;
 use Microsoft\Graph\Generated\Drives\Item\Items\Item\Checkin\CheckinPostRequestBody;
+use Microsoft\Graph\Generated\Drives\Item\Items\Item\Children\ChildrenRequestBuilderGetQueryParameters;
+use Microsoft\Graph\Generated\Drives\Item\Items\Item\Children\ChildrenRequestBuilderGetRequestConfiguration;
 use Microsoft\Graph\Generated\Drives\Item\Items\Item\CreateLink\CreateLinkPostRequestBody;
+use Microsoft\Graph\Generated\Models\Drive;
 use Microsoft\Graph\Generated\Models\DriveItem;
+use Microsoft\Graph\Generated\Models\DriveItemCollectionResponse;
 use Microsoft\Graph\Generated\Models\Folder;
 use Microsoft\Graph\Generated\Models\Permission;
 use Microsoft\Graph\GraphServiceClient;
+use Throwable;
 
 class OneDriveService implements MsGraphOneDriveServiceInterface
 {
     protected GraphServiceClient $graph;
+
+    protected ?Drive $cachedDrive = null;
+
+    protected ?string $cachedDriveUpn = null;
 
     public function __construct(?GraphServiceClient $graph = null)
     {
@@ -61,11 +73,17 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
      */
     public function getUserDrive($upn)
     {
-        return $this->graph->users()
-            ->byUserId($upn)
-            ->drive()
-            ->get()
-            ->wait();
+        $upn = (string) $upn;
+
+        if ($this->cachedDrive !== null && $this->cachedDriveUpn === $upn) {
+            return $this->cachedDrive;
+        }
+
+        $drive = $this->retrieveUserDrive($upn);
+        $this->cachedDrive = $drive instanceof Drive ? $drive : null;
+        $this->cachedDriveUpn = $this->cachedDrive !== null ? $upn : null;
+
+        return $drive;
     }
 
     public function getUserDriveQuota($upn)
@@ -76,20 +94,89 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
     /*
     ** https://learn.microsoft.com/de-de/graph/api/driveitem-list-children?view=graph-rest-1.0
     */
-    public function getUserDriveContent($upn, $subdir = null)
+    public function getUserDriveContent($upn, $subdir = null, array $options = [])
     {
         $driveId = $this->driveIdForUser($upn);
         $itemId = $this->itemPathId($subdir);
+        $requestConfiguration = $this->childrenGetRequestConfiguration($options);
 
         $response = $this->graph->drives()
             ->byDriveId($driveId)
             ->items()
             ->byDriveItemId($itemId)
             ->children()
-            ->get()
+            ->get($requestConfiguration)
             ->wait();
 
         return $response?->getValue() ?? [];
+    }
+
+    /**
+     * @param  list<string>  $subdirs
+     * @return array<string, list<DriveItem>>
+     */
+    public function batchGetUserDriveContents(string $upn, array $subdirs): array
+    {
+        $subdirs = array_values(array_unique(array_map(
+            fn (mixed $subdir): string => is_string($subdir) ? trim($subdir, '/') : '',
+            $subdirs,
+        )));
+
+        if ($subdirs === []) {
+            return [];
+        }
+
+        $driveId = $this->driveIdForUser($upn);
+        $result = [];
+
+        foreach (array_chunk($subdirs, 20) as $chunk) {
+            $batchItems = [];
+            $pathByRequestId = [];
+
+            foreach ($chunk as $subdir) {
+                $itemId = $this->itemPathId($subdir !== '' ? $subdir : null);
+                $requestInfo = $this->graph->drives()
+                    ->byDriveId($driveId)
+                    ->items()
+                    ->byDriveItemId($itemId)
+                    ->children()
+                    ->toGetRequestInformation();
+
+                $batchItem = new BatchRequestItem($requestInfo);
+                $batchItems[] = $batchItem;
+            }
+
+            $batchContent = new BatchRequestContent($batchItems);
+            $requests = $batchContent->getRequests();
+
+            foreach ($requests as $index => $request) {
+                $pathByRequestId[$request->getId()] = $chunk[$index] ?? '';
+            }
+
+            $batchBuilder = new BatchRequestBuilder($this->graph->getRequestAdapter());
+            $batchResponse = $batchBuilder->postAsync($batchContent)->wait();
+
+            foreach ($pathByRequestId as $requestId => $subdir) {
+                try {
+                    $responseItem = $batchResponse->getResponse($requestId);
+                } catch (Throwable) {
+                    $result[$subdir] = [];
+
+                    continue;
+                }
+
+                if ($responseItem === null || $responseItem->getStatusCode() !== 200) {
+                    $result[$subdir] = [];
+
+                    continue;
+                }
+
+                $body = $batchResponse->getResponseBody($requestId, DriveItemCollectionResponse::class);
+                $result[$subdir] = $body?->getValue() ?? [];
+            }
+        }
+
+        return $result;
     }
 
     /*
@@ -356,6 +443,18 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
         });
     }
 
+    /**
+     * Graph-Abruf ohne Instance-Cache — überschreibbar in Tests.
+     */
+    protected function retrieveUserDrive(string $upn): mixed
+    {
+        return $this->graph->users()
+            ->byUserId($upn)
+            ->drive()
+            ->get()
+            ->wait();
+    }
+
     protected function driveIdForUser(string $upn): string
     {
         $drive = $this->getUserDrive($upn);
@@ -381,5 +480,26 @@ class OneDriveService implements MsGraphOneDriveServiceInterface
         }
 
         return 'root:/'.$subdir.':';
+    }
+
+    /**
+     * @param  array{expand?: list<string>}  $options
+     */
+    protected function childrenGetRequestConfiguration(array $options = []): ?ChildrenRequestBuilderGetRequestConfiguration
+    {
+        $expand = $options['expand'] ?? null;
+
+        if (! is_array($expand) || $expand === []) {
+            return null;
+        }
+
+        $config = new ChildrenRequestBuilderGetRequestConfiguration;
+        $config->queryParameters = new ChildrenRequestBuilderGetQueryParameters;
+        $config->queryParameters->expand = array_values(array_filter(
+            $expand,
+            fn (mixed $value): bool => is_string($value) && $value !== '',
+        ));
+
+        return $config;
     }
 }
