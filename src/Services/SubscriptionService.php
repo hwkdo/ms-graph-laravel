@@ -123,51 +123,110 @@ class SubscriptionService
     {
         $mustHaveSubscriptions = GraphWebhookJobMapping::getActiveSubscriptions();
 
-        foreach ($mustHaveSubscriptions as $subscription) {
-            $name = $subscription->name;
-            $values = $subscription->getSubscriptionData();
-
-            $registeredSubscription = Subscription::where('resource', $values['resource'])
-                ->where('notificationUrl', $values['notificationUrl'])
-                ->latest()
-                ->first();
-
-            if (! $registeredSubscription) {
-                // wenn mustHave noch nicht registriert
-                Log::info('MsGraph - MustHave Subscription '.$name.' noch nicht registriert');
-                $result = $this->subscribe($values['resource'], $values['notificationUrl'], $values['changeType']);
-
-                if ($result) {
-                    Log::info('MsGraph - MustHave Subscription '.$name.' erfolgreich registriert');
-                } else {
-                    Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht registriert werden');
-                }
-            } else {
-                // wenn mustHave bereits registriert
-                Log::info('MsGraph - MustHave Subscription '.$name.' bereits registriert');
-
-                $diffHours = \Carbon\Carbon::now()->diffInHours($registeredSubscription->expiration);
-                if ($registeredSubscription->expiration > \Carbon\Carbon::now() && $diffHours > 24) {
-                    Log::info('Expiration ist größer JETZT und loaenger als 24 Stunden gueltig.');
-                } else {
-                    Log::info('Braucht re-subscribe');
-                    try {
-                        $this->unsubscribe($registeredSubscription->graph_id);
-                    } catch (\Exception $e) {
-                        Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht unsubscribed werden');
-                    }
-                    $result = $this->subscribe($values['resource'], $values['notificationUrl'], $values['changeType']);
-
-                    if ($result) {
-                        Log::info('MsGraph - MustHave Subscription '.$name.' erfolgreich registriert');
-                        $registeredSubscription->delete();
-                    } else {
-                        Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht registriert werden');
-                    }
-                }
-            }
+        foreach ($mustHaveSubscriptions as $mapping) {
+            $this->syncMapping($mapping);
         }
 
         return true;
+    }
+
+    /**
+     * Registriert bzw. erneuert genau eine Mapping-Subscription bei Microsoft Graph.
+     *
+     * @return array{ok: bool, status: string, message: string}
+     */
+    public function syncMapping(GraphWebhookJobMapping $mapping, bool $force = false): array
+    {
+        $name = $mapping->name ?: $mapping->webhook_type;
+
+        if (! $mapping->is_active) {
+            return [
+                'ok' => false,
+                'status' => 'inactive',
+                'message' => "Mapping [{$name}] ist inaktiv.",
+            ];
+        }
+
+        if (! $mapping->hasSubscriptionData()) {
+            return [
+                'ok' => false,
+                'status' => 'incomplete',
+                'message' => "Mapping [{$name}] hat unvollständige Subscription-Daten (resource/notification_url/change_type).",
+            ];
+        }
+
+        $values = $mapping->getSubscriptionData();
+
+        $registeredSubscription = Subscription::query()
+            ->where('resource', $values['resource'])
+            ->where('notificationUrl', $values['notificationUrl'])
+            ->latest()
+            ->first();
+
+        if (! $registeredSubscription) {
+            Log::info('MsGraph - MustHave Subscription '.$name.' noch nicht registriert');
+            $result = $this->subscribe($values['resource'], $values['notificationUrl'], $values['changeType']);
+
+            if ($result) {
+                Log::info('MsGraph - MustHave Subscription '.$name.' erfolgreich registriert');
+
+                return [
+                    'ok' => true,
+                    'status' => 'created',
+                    'message' => "Subscription [{$name}] wurde registriert.",
+                ];
+            }
+
+            Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht registriert werden');
+
+            return [
+                'ok' => false,
+                'status' => 'failed',
+                'message' => "Subscription [{$name}] konnte nicht registriert werden.",
+            ];
+        }
+
+        Log::info('MsGraph - MustHave Subscription '.$name.' bereits registriert');
+
+        $stillValid = $registeredSubscription->expiration > \Carbon\Carbon::now()
+            && \Carbon\Carbon::now()->diffInHours($registeredSubscription->expiration) > 24;
+
+        if ($stillValid && ! $force) {
+            Log::info('Expiration ist größer JETZT und loaenger als 24 Stunden gueltig.');
+
+            return [
+                'ok' => true,
+                'status' => 'still_valid',
+                'message' => "Subscription [{$name}] ist bereits registriert und noch länger als 24h gültig.",
+            ];
+        }
+
+        Log::info('Braucht re-subscribe');
+
+        try {
+            $this->unsubscribe($registeredSubscription->graph_id);
+        } catch (\Exception $e) {
+            Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht unsubscribed werden');
+        }
+
+        $result = $this->subscribe($values['resource'], $values['notificationUrl'], $values['changeType']);
+
+        if ($result) {
+            Log::info('MsGraph - MustHave Subscription '.$name.' erfolgreich registriert');
+
+            return [
+                'ok' => true,
+                'status' => 'renewed',
+                'message' => "Subscription [{$name}] wurde erneuert.",
+            ];
+        }
+
+        Log::error('MsGraph - MustHave Subscription '.$name.' konnte nicht registriert werden');
+
+        return [
+            'ok' => false,
+            'status' => 'failed',
+            'message' => "Subscription [{$name}] konnte nicht erneuert werden.",
+        ];
     }
 }

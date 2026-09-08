@@ -150,4 +150,79 @@ class MailboxService implements MsGraphMailboxServiceInterface
 
         return $response;
     }
+
+    public function setInboxForwarding(string $mailboxUpn, string $forwardToSmtp): void
+    {
+        $this->clearInboxForwarding($mailboxUpn);
+
+        $url = 'https://graph.microsoft.com/v1.0/users/'.rawurlencode($mailboxUpn).'/mailFolders/inbox/messageRules';
+        $httpClient = new \GuzzleHttp\Client;
+
+        $httpClient->post($url, [
+            'headers' => [
+                'Authorization' => 'Bearer '.$this->getAccessToken(),
+                'Content-Type' => 'application/json',
+            ],
+            'json' => [
+                'displayName' => MsGraphMailboxServiceInterface::INTRANET_AUSTRITT_FORWARD_RULE_NAME,
+                'sequence' => 1,
+                'isEnabled' => true,
+                'conditions' => new \stdClass,
+                'actions' => [
+                    'forwardTo' => [
+                        [
+                            'emailAddress' => [
+                                'address' => $forwardToSmtp,
+                            ],
+                        ],
+                    ],
+                    'stopProcessingRules' => true,
+                ],
+            ],
+        ]);
+    }
+
+    public function clearInboxForwarding(string $mailboxUpn): void
+    {
+        foreach ($this->listInboxRules($mailboxUpn) as $rule) {
+            $name = (string) ($rule['displayName'] ?? '');
+            $id = (string) ($rule['id'] ?? '');
+            if ($id === '' || $name !== MsGraphMailboxServiceInterface::INTRANET_AUSTRITT_FORWARD_RULE_NAME) {
+                continue;
+            }
+
+            $url = 'https://graph.microsoft.com/v1.0/users/'.rawurlencode($mailboxUpn).'/mailFolders/inbox/messageRules/'.rawurlencode($id);
+            $httpClient = new \GuzzleHttp\Client;
+            $httpClient->delete($url, [
+                'headers' => [
+                    'Authorization' => 'Bearer '.$this->getAccessToken(),
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function listInboxRules(string $mailboxUpn): array
+    {
+        $url = 'https://graph.microsoft.com/v1.0/users/'.rawurlencode($mailboxUpn).'/mailFolders/inbox/messageRules';
+        $httpClient = new \GuzzleHttp\Client;
+
+        $response = $httpClient->get($url, [
+            'headers' => [
+                'Authorization' => 'Bearer '.$this->getAccessToken(),
+                'Accept' => 'application/json',
+            ],
+        ]);
+
+        $decoded = json_decode((string) $response->getBody(), true);
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $values = $decoded['value'] ?? [];
+
+        return is_array($values) ? array_values($values) : [];
+    }
 }
