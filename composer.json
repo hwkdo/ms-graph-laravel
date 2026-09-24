@@ -19,7 +19,7 @@
         "php": "^8.3",
         "spatie/laravel-package-tools": "^1.16",
         "illuminate/contracts": "^12.0||^13.0",
-        "microsoft/microsoft-graph": "^2.49",
+        "microsoft/microsoft-graph": "^3.0",
         "guzzlehttp/guzzle": "^7.0"
     },
     "require-dev": [],
