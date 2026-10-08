@@ -23,4 +23,15 @@ class DelegatedGraphClientFactory implements MsGraphDelegatedGraphClientFactoryI
 
         return GraphServiceClient::createWithRequestAdapter($requestAdapter);
     }
+
+    /**
+     * @param  list<string>  $requiredScopes
+     */
+    public function forUserWithScopes(Authenticatable $user, array $requiredScopes): GraphServiceClient
+    {
+        $authenticationProvider = new DelegatedBearerTokenAuthenticationProvider($this->tokens, $user, $requiredScopes);
+        $requestAdapter = new GraphRequestAdapter($authenticationProvider);
+
+        return GraphServiceClient::createWithRequestAdapter($requestAdapter);
+    }
 }

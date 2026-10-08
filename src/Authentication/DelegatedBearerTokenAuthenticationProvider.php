@@ -13,9 +13,13 @@ use Microsoft\Kiota\Abstractions\RequestInformation;
 
 class DelegatedBearerTokenAuthenticationProvider implements AuthenticationProvider
 {
+    /**
+     * @param  list<string>|null  $requiredScopes
+     */
     public function __construct(
         private DelegatedAccessTokenService $tokens,
         private Authenticatable $user,
+        private ?array $requiredScopes = null,
     ) {}
 
     /**
@@ -23,7 +27,9 @@ class DelegatedBearerTokenAuthenticationProvider implements AuthenticationProvid
      */
     public function authenticateRequest(RequestInformation $request, array $additionalAuthenticationContext = []): Promise
     {
-        $token = $this->tokens->accessToken($this->user);
+        $token = $this->requiredScopes === null
+            ? $this->tokens->accessToken($this->user)
+            : $this->tokens->accessTokenForScopes($this->user, $this->requiredScopes);
         $request->addHeaders(['Authorization' => 'Bearer '.$token]);
 
         return new FulfilledPromise($request);

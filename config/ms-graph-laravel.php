@@ -22,6 +22,14 @@ return [
             'client_id' => env('MSGRAPH_TEAMS_BOT_APP_ID'),
             'client_secret' => env('MSGRAPH_TEAMS_BOT_APP_SECRET'),
         ],
+        /*
+         * OneNote-Inhalte gehen nicht über App-only-Tokens.
+         * Delegated Scopes stehen an der Login-App (config services.microsoft.scopes).
+         */
+        'onenote' => [
+            'client_id' => env('MSGRAPH_APP_ID_ONENOTE'),
+            'client_secret' => env('MSGRAPH_APP_SECRET_KEY_ONENOTE'),
+        ],
     ],
 
     'subscription_secret' => env('MSGRAPH_SUBSCRIBE_SECRET'),
@@ -74,6 +82,9 @@ return [
         'required_onedrive_scopes' => [
             'Files.ReadWrite',
             'Files.ReadWrite.All',
+        ],
+        'required_onenote_scopes' => [
+            'Notes.Read.All',
         ],
         'token_attributes' => [
             'access_token' => 'socialite_token',

@@ -16,7 +16,7 @@ class MicrosoftDelegatedTokenMissingException extends Exception implements Shoul
 
     public static function missingRequiredScopes(): self
     {
-        return new self('Dem Microsoft-Token fehlen OneDrive-Berechtigungen. Bitte erneut mit Microsoft anmelden.');
+        return new self('Dem Microsoft-Token fehlen die nötigen Berechtigungen. Bitte erneut mit Microsoft anmelden.');
     }
 
     public static function refreshFailed(): self

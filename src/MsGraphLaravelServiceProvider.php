@@ -17,6 +17,7 @@ use Hwkdo\MsGraphLaravel\Interfaces\MsGraphLicenseServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailboxServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOneDriveServiceInterface;
+use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOneNoteServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOutOfOfficeTemplateServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphShareServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphUserServiceInterface;
@@ -32,6 +33,7 @@ use Hwkdo\MsGraphLaravel\Services\LicenseService;
 use Hwkdo\MsGraphLaravel\Services\MailboxService;
 use Hwkdo\MsGraphLaravel\Services\MailService;
 use Hwkdo\MsGraphLaravel\Services\OneDriveService;
+use Hwkdo\MsGraphLaravel\Services\OneNoteService;
 use Hwkdo\MsGraphLaravel\Services\OutOfOfficeTemplateService;
 use Hwkdo\MsGraphLaravel\Services\ShareService;
 use Hwkdo\MsGraphLaravel\Services\UserService;
@@ -146,6 +148,11 @@ class MsGraphLaravelServiceProvider extends PackageServiceProvider
         $this->app->bind(
             MsGraphShareServiceInterface::class,
             ShareService::class
+        );
+
+        $this->app->bind(
+            MsGraphOneNoteServiceInterface::class,
+            OneNoteService::class
         );
     }
 }

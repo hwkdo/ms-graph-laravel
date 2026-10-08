@@ -20,8 +20,14 @@ class DelegatedAccessTokenService
 
     public function accessToken(Authenticatable $user): string
     {
-        $this->assertHasOnedriveScopes($user);
+        return $this->accessTokenForScopes($user, $this->requiredOnedriveScopes());
+    }
 
+    /**
+     * @param  list<string>  $requiredScopes
+     */
+    public function accessTokenForScopes(Authenticatable $user, array $requiredScopes): string
+    {
         $accessToken = $this->tokenStore->accessToken($user);
         $expiresAt = $this->tokenStore->expiresAt($user);
         $leeway = (int) config('ms-graph-laravel.delegated.refresh_leeway_seconds', 120);
@@ -32,33 +38,68 @@ class DelegatedAccessTokenService
             && $expiresAt !== null
             && Carbon::parse($expiresAt)->isAfter(now()->addSeconds($leeway))
         ) {
-            return $accessToken;
+            if ($this->hasAnyScope($user, $requiredScopes)) {
+                return $accessToken;
+            }
+
+            throw MicrosoftDelegatedTokenMissingException::missingRequiredScopes();
         }
 
-        return $this->refresh($user);
+        $token = $this->refresh($user);
+        $this->assertHasScopes($user, $requiredScopes);
+
+        return $token;
     }
 
-    public function assertHasOnedriveScopes(Authenticatable $user): void
+    /**
+     * @return list<string>
+     */
+    private function requiredOnedriveScopes(): array
     {
         $required = config('ms-graph-laravel.delegated.required_onedrive_scopes', ['Files.ReadWrite']);
 
         if (! is_array($required) || $required === []) {
-            $required = ['Files.ReadWrite'];
+            return ['Files.ReadWrite'];
         }
 
+        return array_values(array_filter($required, fn (mixed $scope): bool => is_string($scope) && $scope !== ''));
+    }
+
+    public function assertHasOnedriveScopes(Authenticatable $user): void
+    {
+        $this->assertHasScopes($user, $this->requiredOnedriveScopes());
+    }
+
+    /**
+     * @param  list<string>  $requiredScopes
+     */
+    public function assertHasScopes(Authenticatable $user, array $requiredScopes): void
+    {
+        if ($this->hasAnyScope($user, $requiredScopes)) {
+            return;
+        }
+
+        throw MicrosoftDelegatedTokenMissingException::missingRequiredScopes();
+    }
+
+    /**
+     * @param  list<string>  $requiredScopes
+     */
+    private function hasAnyScope(Authenticatable $user, array $requiredScopes): bool
+    {
         $scopes = $this->normalizedScopes($this->tokenStore->scopes($user));
 
-        foreach ($required as $scope) {
+        foreach ($requiredScopes as $scope) {
             if (! is_string($scope) || $scope === '') {
                 continue;
             }
 
             if (in_array($this->normalizeScope($scope), $scopes, true)) {
-                return;
+                return true;
             }
         }
 
-        throw MicrosoftDelegatedTokenMissingException::missingRequiredScopes();
+        return false;
     }
 
     protected function refresh(Authenticatable $user): string
@@ -120,8 +161,6 @@ class DelegatedAccessTokenService
             now()->addSeconds(max($expiresIn, 0)),
             array_values(array_filter($grantedScopes, fn (mixed $scope): bool => is_string($scope) && $scope !== '')),
         );
-
-        $this->assertHasOnedriveScopes($user);
 
         return $accessToken;
     }
